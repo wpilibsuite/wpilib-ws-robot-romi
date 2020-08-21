@@ -16,7 +16,8 @@ export default class MockI2C extends I2CPromisifiedBus {
 
     public writeByte(addr: number, cmd: number, byte: number): Promise<void> {
         console.log(`writeByte(${addr}, ${cmd}, ${byte})`);
-        return Promise.resolve();
+        return Promise.resolve()
+            .then(() => this._postWriteDelay());
     }
 
     public readWord(addr: number, cmd: number): Promise<number> {
@@ -26,8 +27,15 @@ export default class MockI2C extends I2CPromisifiedBus {
 
     public writeWord(addr: number, cmd: number, word: number): Promise<void> {
         console.log(`writeWord(${addr}, ${cmd}, ${word})`);
-        return Promise.resolve();
+        return Promise.resolve()
+            .then(() => this._postWriteDelay());
     }
 
-
+    private _postWriteDelay(delayMs: number = 1): Promise<void> {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve();
+            }, delayMs);
+        });
+    }
 }

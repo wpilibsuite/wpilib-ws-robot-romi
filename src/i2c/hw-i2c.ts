@@ -26,7 +26,8 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     public writeByte(addr: number, cmd: number, byte: number): Promise<void> {
         return this._i2cBusP
         .then(bus => {
-            return bus.writeByte(addr, cmd, byte);
+            return bus.writeByte(addr, cmd, byte)
+            .then(() => this._postWriteDelay());
         });
     }
 
@@ -40,9 +41,16 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     public writeWord(addr: number, cmd: number, word: number): Promise<void> {
         return this._i2cBusP
         .then(bus => {
-            return bus.writeWord(addr, cmd, word);
+            return bus.writeWord(addr, cmd, word)
+            .then(() => this._postWriteDelay());
         });
     }
 
-
+    private _postWriteDelay(delayMs: number = 1): Promise<void> {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve();
+            }, delayMs);
+        });
+    }
 }
