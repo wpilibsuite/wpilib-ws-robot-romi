@@ -1,0 +1,30 @@
+{
+  "name": "wpilib-ws-robot-romi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bb-frc-workshops/wpilib-ws-robot-romi.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bb-frc-workshops/wpilib-ws-robot-romi/issues"
+  },
+  "homepage": "https://github.com/bb-frc-workshops/wpilib-ws-robot-romi#readme",
+  "dependencies": {
+    "wpilib-ws-robot": "0.0.1"
+  },
+  "optionalDependencies": {
+    "i2c-bus": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/i2c-bus": "^5.1.0"
+  }
+}
