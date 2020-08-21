@@ -134,24 +134,26 @@ void loop() {
   rPiLink.finalizeWrites();
 }
 
-// void configureSinglePin(uint8_t pin, uint8_t mode) {
-
-// }
-
-// void configurePins(uint16_t config) {
-
-//   // Clear the config bit
-//   config &= ~(1 << 15);
-//   rPiLink.buffer.pinConfig = config;
-// }
-
 void configureBuiltins(uint8_t config) {
-  // Ignore DIO 0 (highest 2 bits)
-  builtinDio1Config = (config >> 4) & 0x1;
-  builtinDio2Config = (config >> 2) & 0x1;
-  builtinDio3Config = (config & 0x1);
+  // structure
+  // [ConfigFlag] [Unused] [Unused] [Unused] [Channel] [Mode]
+  //       7         6        5         4        3,2     1,0
+  uint8_t channel = (config >> 2) & 0x3;
+  uint8_t mode = config & 0x3;
 
-  // Clear the config bit
-  config &= ~(1 << 7);
-  rPiLink.buffer.builtinConfig = config;
+  // Bail early if we get an invalid DIO channel or mode
+  // Also, only DIO 1 and 2 can be configured
+  // TODO: set an error flag somewhere?
+  if (channel > 3 || channel == 0 || channel == 3) return;
+  if (mode > 1) return;
+
+  if (channel == 1) {
+    builtinDio1Config = mode;
+  }
+  else if (channel == 2) {
+    builtinDio2Config = mode;
+  }
+
+  // Wipe out the register
+  rPiLink.buffer.builtinConfig = 0;
 }
