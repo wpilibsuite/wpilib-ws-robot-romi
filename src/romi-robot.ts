@@ -119,7 +119,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             // writeBlock() doesn't work...
             const tmp = Buffer.alloc(2);
             tmp.writeInt16BE(value);
-            this._writeWord(RomiDataBuffer.pwm.offset + channel, tmp.readUInt16BE());
+            this._writeWord(RomiDataBuffer.pwm.offset + (channel * 2), tmp.readUInt16BE());
         }
     }
 
