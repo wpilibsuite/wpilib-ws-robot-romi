@@ -3,7 +3,7 @@
 ## Hardware Changes
 TODO Include image
 
-We will use a set of 5 pins to provide additional I/O capability to the Romi board. These pins are
+We will use a set of 5 pins to provide additional I/O capability to the Romi board. These pins are:
 
 - Pin 11
 - Pin 4 / Analog 6
@@ -11,9 +11,15 @@ We will use a set of 5 pins to provide additional I/O capability to the Romi boa
 - Pin 21 / Analog 3
 - Pin 22 / Analog 4
 
+![Romi Pinout](./romi-pinout.png)
+
 You can see them on the front left side of the Romi board. For easy interfacing, solder a bunch of pin headers for those 5 pins, and the power rails.
 
+![Soldered Pins](./romi-pins.jpg)
+
 Additionally, the middle power rail is not connected to anything, so solder another set of jumpers between that and the 5V pin (next to pin 11). Adding a jumper here will provide power to the middle rail.
+
+![Power Jumper](./power-bridge.png)
 
 ## Software Changes
 TODO ServoT3
