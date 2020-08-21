@@ -1,6 +1,6 @@
 import { WPILibWSRobotBase, DigitalChannelMode } from "wpilib-ws-robot";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
-import MockI2C from "./i2c/mock-i2c";
+import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer from "./romi-shmem-buffer";
 
@@ -8,8 +8,12 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
 
-    // TODO store input states
-    // private _digitalInput
+    private _i2cQueue: PromiseQueue = new PromiseQueue(1);
+    private _heartbeatTimer: NodeJS.Timeout;
+    private _readTimer: NodeJS.Timeout;
+
+    private _digitalInputValues: Map<number, boolean> = new Map<number, boolean>();
+    private _analogInputValues: Map<number, number> = new Map<number, number>();
 
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
@@ -18,6 +22,22 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         this._i2cBus = bus;
         this._i2cAddress = address;
+
+        // Initial set up of digital and analog inputs
+        this._digitalInputValues.set(0, false);
+        this._analogInputValues.set(0, 0.0);
+        this._analogInputValues.set(1, 0.0);
+
+        // Set up the heartbeat
+        this._heartbeatTimer = setInterval(() => {
+            this._writeByte(RomiDataBuffer.heartbeat.offset, 1);
+        }, 100);
+
+        // Set up the read timer
+        this._readTimer = setInterval(() => {
+            this._bulkAnalogRead();
+            this._bulkDigitalRead();
+        }, 50);
     }
 
     public readyP(): Promise<void> {
@@ -50,6 +70,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (channel === 8) {
             this._writeByte(RomiDataBuffer.dio8Input.offset, mode === DigitalChannelMode.INPUT ? 1 : 0);
         }
+
+        if (mode !== DigitalChannelMode.INPUT) {
+            this._digitalInputValues.delete(channel);
+        }
+        else if (!this._digitalInputValues.has(channel)) {
+            this._digitalInputValues.set(channel, false);
+        }
     }
 
     public setDIOValue(channel: number, value: boolean): void {
@@ -64,7 +91,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public getDIOValue(channel: number): boolean {
-        return false;
+        if (!this._digitalInputValues.has(channel)) {
+            return false;
+        }
+
+        return this._digitalInputValues.get(channel);
     }
 
     public setAnalogOutVoltage(channel: number, voltage: number): void {
@@ -72,7 +103,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public getAnalogInVoltage(channel: number): number {
-        return 0.0;
+        if (!this._analogInputValues.has(channel)) {
+            return 0.0;
+        }
+
+        return this._analogInputValues.get(channel);
     }
 
     public setPWMValue(channel: number, value: number): void {
@@ -89,18 +124,57 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     protected async _readByte(cmd: number): Promise<number> {
-        return this._i2cBus.readByte(this._i2cAddress, cmd);
+        return this._i2cQueue.add(() => {
+            return this._i2cBus.readByte(this._i2cAddress, cmd);
+        });
     }
 
     protected async _readWord(cmd: number): Promise<number> {
-        return this._i2cBus.readWord(this._i2cAddress, cmd);
+        return this._i2cQueue.add(() => {
+            return this._i2cBus.readWord(this._i2cAddress, cmd);
+        });
     }
 
     protected async _writeByte(cmd: number, byte: number): Promise<void> {
-        return this._i2cBus.writeByte(this._i2cAddress, cmd, byte);
+        return this._i2cQueue.add(() => {
+            return this._i2cBus.writeByte(this._i2cAddress, cmd, byte);
+        });
     }
 
     protected async _writeWord(cmd: number, word: number): Promise<void> {
-        return this._i2cBus.writeWord(this._i2cAddress, cmd, word);
+        return this._i2cQueue.add(() => {
+            return this._i2cBus.writeByte(this._i2cAddress, cmd, word)
+        });
+    }
+
+    private _bulkAnalogRead() {
+        this._analogInputValues.forEach((val, channel) => {
+            // Offset by 2 bytes for each element
+            this._readWord(RomiDataBuffer.analog.offset + (channel * 2))
+            .then(voltage => {
+                this._analogInputValues.set(channel, voltage);
+            });
+        });
+    }
+
+    private _bulkDigitalRead() {
+        this._digitalInputValues.forEach((val, channel) => {
+            let offset = RomiDataBuffer.builtinDioValues.offset;
+
+            if (channel < 4) {
+                offset += channel;
+            }
+            else if (channel === 8) {
+                offset = RomiDataBuffer.dio8Value.offset;
+            }
+            else {
+                return;
+            }
+
+            this._readByte(offset)
+            .then(value => {
+                this._digitalInputValues.set(channel, value !== 0);
+            });
+        });
     }
 }

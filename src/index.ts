@@ -3,6 +3,7 @@ import { DigitalChannelMode } from "wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 
+
 const I2C_BUS_NUM: number = 1;
 
 // Set up the i2c bus out here
@@ -19,4 +20,3 @@ catch (err) {
 }
 
 const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14);
-
