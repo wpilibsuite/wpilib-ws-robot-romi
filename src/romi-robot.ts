@@ -2,6 +2,8 @@ import { WPILibWSRobotBase, DigitalChannelMode } from "wpilib-ws-robot";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 import MockI2C from "./i2c/mock-i2c";
 
+import RomiDataBuffer from "./romi-shmem-buffer";
+
 export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
@@ -12,7 +14,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._i2cAddress = address;
 
         try {
-            const HardwareI2C = require("./i2c/hw-i2c");
+            const HardwareI2C = require("./i2c/hw-i2c").default;
             this._i2cBus = new HardwareI2C(busNum);
         }
         catch(err) {
@@ -30,7 +32,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public setDigitalChannelMode(channel: number, mode: DigitalChannelMode): void {
-
+        // For DIO 0-3, we use the builtinConfig field
     }
 
     public setDIOValue(channel: number, value: boolean): void {

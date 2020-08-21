@@ -1,0 +1,19 @@
+[
+    { "name": "heartbeat", "type": "bool" },
+
+    { "name": "builtinConfig", "type": "uint8_t" },
+    { "name": "builtinDioValues", "type": "bool", "arraySize": 4 },
+
+    { "name": "dio8Input", "type": "bool" },
+    { "name": "dio8Value", "type": "bool" },
+
+    { "name": "analog", "type": "uint16_t", "arraySize": 2 },
+    { "name": "pwm", "type": "int16_t", "arraySize": 4 },
+
+    { "name": "batteryMillivolts", "type": "uint16_t" },
+
+    { "name": "resetLeftEncoder", "type": "bool" },
+    { "name": "resetRightEncoder", "type": "bool" },
+    { "name": "leftEncoder", "type": "int16_t" },
+    { "name": "rightEncoder", "type": "int16_t" }
+]
