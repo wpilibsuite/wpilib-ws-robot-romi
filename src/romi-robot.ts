@@ -143,7 +143,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     protected async _writeWord(cmd: number, word: number): Promise<void> {
         return this._i2cQueue.add(() => {
-            return this._i2cBus.writeByte(this._i2cAddress, cmd, word)
+            return this._i2cBus.writeWord(this._i2cAddress, cmd, word)
         });
     }
 
