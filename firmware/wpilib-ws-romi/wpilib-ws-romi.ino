@@ -31,7 +31,7 @@ Romi32U4ButtonB buttonB;
 Romi32U4ButtonC buttonC;
 Romi32U4Buzzer buzzer;
 
-PololuRPiSlave<Data, 5> rPiLink;
+PololuRPiSlave<Data, 20> rPiLink;
 
 uint8_t builtinDio0Config = kModeDigitalIn;
 uint8_t builtinDio1Config = kModeDigitalOut;
