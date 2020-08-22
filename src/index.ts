@@ -1,5 +1,5 @@
 import WPILibWSRomiRobot from "./romi-robot";
-import { DigitalChannelMode } from "wpilib-ws-robot";
+import { DigitalChannelMode, WPILibWSRobotEndpoint } from "wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 
@@ -20,3 +20,9 @@ catch (err) {
 }
 
 const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14);
+const server: WPILibWSRobotEndpoint = WPILibWSRobotEndpoint.createServerEndpoint(robot);
+
+server.startP()
+.then(() => {
+    console.log("Server Started");
+});
