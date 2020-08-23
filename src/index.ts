@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import WPILibWSRomiRobot from "./romi-robot";
 import { DigitalChannelMode, WPILibWSRobotEndpoint } from "wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";

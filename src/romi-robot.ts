@@ -112,13 +112,19 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     public setPWMValue(channel: number, value: number): void {
         if (channel < RomiDataBuffer.pwm.arraySize) {
+            // We get the value in the range 0-255 but the romi
+            // expects -400 to 400
+            // (Also, we need to flip the signs to get the robot driving
+            // in the correct orientation)
+            const romiValue = -Math.floor(((value / 255) * 800) - 400);
+
             // We need to do some trickery to get a twos-complement number
             // Essentially we'll write a 16 bit signed int to the buffer
             // and read it out as an unsigned int
             // Mainly to work around the fact that the i2c-bus library's
             // writeBlock() doesn't work...
             const tmp = Buffer.alloc(2);
-            tmp.writeInt16BE(value);
+            tmp.writeInt16BE(romiValue);
             this._writeWord(RomiDataBuffer.pwm.offset + (channel * 2), tmp.readUInt16BE());
         }
     }

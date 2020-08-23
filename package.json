@@ -6,7 +6,12 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "gen-shmem": "node generate-buffer.js"
+    "gen-shmem": "node generate-buffer.js",
+    "start": "npm run build && node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "bin": {
+    "wpilibws-romi": "dist/index.js"
   },
   "repository": {
     "type": "git",
@@ -28,6 +33,7 @@
   },
   "devDependencies": {
     "@types/i2c-bus": "^5.1.0",
+    "@types/node": "^14.6.0",
     "@types/promise-queue": "^2.2.0",
     "typescript": "^3.9.7",
     "uuid": "^8.3.0"
