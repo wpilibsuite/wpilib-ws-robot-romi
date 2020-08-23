@@ -37,5 +37,8 @@
     "@types/promise-queue": "^2.2.0",
     "typescript": "^3.9.7",
     "uuid": "^8.3.0"
-  }
+  },
+  "files":[
+    "dist/**/*"
+  ]
 }
