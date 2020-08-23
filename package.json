@@ -21,7 +21,7 @@
   "homepage": "https://github.com/bb-frc-workshops/wpilib-ws-robot-romi#readme",
   "dependencies": {
     "promise-queue": "^2.2.5",
-    "wpilib-ws-robot": "0.0.2"
+    "wpilib-ws-robot": "0.0.3"
   },
   "optionalDependencies": {
     "i2c-bus": "^5.2.0"
