@@ -4,6 +4,11 @@ import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer from "./romi-shmem-buffer";
 
+interface IEncoderInfo {
+    reportedValue: number; // This is the reading that is reported to usercode
+    lastRobotValue: number; // The last robot-reported value
+}
+
 export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
@@ -14,6 +19,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _digitalInputValues: Map<number, boolean> = new Map<number, boolean>();
     private _analogInputValues: Map<number, number> = new Map<number, number>();
+    private _encoderInputValues: Map<number, IEncoderInfo> = new Map<number, IEncoderInfo>();
 
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
@@ -28,6 +34,17 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._analogInputValues.set(0, 0.0);
         this._analogInputValues.set(1, 0.0);
 
+        // Set up encoders
+        this._encoderInputValues.set(0, {
+            reportedValue: 0,
+            lastRobotValue: 0
+        });
+
+        this._encoderInputValues.set(1, {
+            reportedValue: 0,
+            lastRobotValue: 0
+        });
+
         // Set up the heartbeat
         this._heartbeatTimer = setInterval(() => {
             this._writeByte(RomiDataBuffer.heartbeat.offset, 1);
@@ -37,6 +54,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._readTimer = setInterval(() => {
             this._bulkAnalogRead();
             this._bulkDigitalRead();
+            this._bulkEncoderRead();
         }, 50);
     }
 
@@ -129,6 +147,35 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         }
     }
 
+    public getEncoderCount(channel: number): number {
+        if (!this._encoderInputValues.has(channel)) {
+            return 0;
+        }
+
+        return this._encoderInputValues.get(channel).reportedValue;
+    }
+
+    public resetEncoder(channel: number): void {
+        if (channel !== 0 && channel !== 1) {
+            return;
+        }
+
+        let offset = RomiDataBuffer.resetLeftEncoder.offset;
+        if (channel === 1) {
+            offset = RomiDataBuffer.resetRightEncoder.offset;
+        }
+
+        const encoderInfo = this._encoderInputValues.get(channel);
+        encoderInfo.lastRobotValue = 0;
+        encoderInfo.reportedValue = 0;
+
+        this._writeByte(offset, 1);
+    }
+
+    public setEncoderReverseDirection(channel: number, reverse: boolean): void {
+        // TODO Implement
+    }
+
     protected async _readByte(cmd: number): Promise<number> {
         return this._i2cQueue.add(() => {
             return this._i2cBus.readByte(this._i2cAddress, cmd);
@@ -180,6 +227,35 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             this._readByte(offset)
             .then(value => {
                 this._digitalInputValues.set(channel, value !== 0);
+            });
+        });
+    }
+
+    private _bulkEncoderRead() {
+        this._encoderInputValues.forEach((encoderInfo, channel) => {
+            if (channel !== 0 && channel !== 1) {
+                return;
+            }
+
+            let offset = RomiDataBuffer.leftEncoder.offset;
+            if (channel === 1) {
+                offset = RomiDataBuffer.rightEncoder.offset;
+            }
+
+            this._readWord(offset)
+            .then(encoderValue => {
+                const lastValue = encoderInfo.lastRobotValue;
+                const delta = encoderValue - lastValue;
+
+                encoderInfo.reportedValue += delta;
+                encoderInfo.lastRobotValue = encoderValue;
+
+                // If we're getting close to the limits, reset the romi
+                // encoder so we don't overflow
+                if (Math.abs(encoderValue) > 65000) {
+                    this.resetEncoder(channel);
+                    encoderInfo.lastRobotValue = 0;
+                }
             });
         });
     }
