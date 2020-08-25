@@ -155,7 +155,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         return this._encoderInputValues.get(channel).reportedValue;
     }
 
-    public resetEncoder(channel: number): void {
+    public resetEncoder(channel: number, keepLast?: boolean): void {
         if (channel !== 0 && channel !== 1) {
             return;
         }
@@ -167,7 +167,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         const encoderInfo = this._encoderInputValues.get(channel);
         encoderInfo.lastRobotValue = 0;
-        encoderInfo.reportedValue = 0;
+
+        if (!keepLast) {
+            encoderInfo.reportedValue = 0;
+        }
 
         this._writeByte(offset, 1);
     }
@@ -244,6 +247,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
             this._readWord(offset)
             .then(encoderValue => {
+                // This comes in as a uint16_t
+                const buf = Buffer.alloc(2);
+                buf.writeUInt16LE(encoderValue);
+                encoderValue = buf.readInt16LE();
+
                 const lastValue = encoderInfo.lastRobotValue;
                 const delta = encoderValue - lastValue;
 
@@ -252,8 +260,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
                 // If we're getting close to the limits, reset the romi
                 // encoder so we don't overflow
-                if (Math.abs(encoderValue) > 65000) {
-                    this.resetEncoder(channel);
+                if (Math.abs(encoderValue) > 30000) {
+                    this.resetEncoder(channel, true);
                     encoderInfo.lastRobotValue = 0;
                 }
             });

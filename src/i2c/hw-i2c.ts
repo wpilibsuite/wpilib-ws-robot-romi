@@ -40,15 +40,15 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     public readWord(addr: number, cmd: number): Promise<number> {
         const buf = Buffer.alloc(2);
         return this.readByte(addr, cmd)
-        .then(msb => {
-            buf[0] = msb;
+        .then(lsb => {
+            buf[0] = lsb;
         })
         .then(() => {
             return this.readByte(addr, cmd + 1);
         })
-        .then(lsb => {
-            buf[1] = lsb;
-            return buf.readUInt16BE();
+        .then(msb => {
+            buf[1] = msb;
+            return buf.readUInt16LE();
         });
     }
 
