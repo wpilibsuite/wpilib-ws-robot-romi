@@ -131,6 +131,8 @@ void loop() {
   rPiLink.buffer.leftEncoder = encoders.getCountsLeft();
   rPiLink.buffer.rightEncoder = encoders.getCountsRight();
 
+  rPiLink.buffer.batteryMillivolts = readBatteryMillivolts();
+
   rPiLink.finalizeWrites();
 }
 
