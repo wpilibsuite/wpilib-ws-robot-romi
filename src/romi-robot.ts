@@ -13,6 +13,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
 
+    private _batteryPct: number = 0;
+
     private _i2cQueue: PromiseQueue = new PromiseQueue(1);
     private _heartbeatTimer: NodeJS.Timeout;
     private _readTimer: NodeJS.Timeout;
@@ -55,6 +57,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             this._bulkAnalogRead();
             this._bulkDigitalRead();
             this._bulkEncoderRead();
+
+            this._readBattery();
         }, 50);
     }
 
@@ -64,6 +68,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     public get descriptor(): string {
         return "WPILibWS Reference Robot (Romi)";
+    }
+
+    public getBatteryPercentage(): number {
+        return this._batteryPct;
     }
 
     public setDigitalChannelMode(channel: number, mode: DigitalChannelMode): void {
@@ -265,6 +273,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     encoderInfo.lastRobotValue = 0;
                 }
             });
+        });
+    }
+
+    private _readBattery(): void {
+        this._readWord(RomiDataBuffer.batteryMillivolts.offset)
+        .then(battMv => {
+            this._batteryPct = battMv / 9000;
         });
     }
 }
