@@ -1,14 +1,19 @@
 [
+    { "name": "ioConfig", "type": "uint8_t" },
+    { "name": "status", "type": "uint8_t" },
+
     { "name": "heartbeat", "type": "bool" },
 
     { "name": "builtinConfig", "type": "uint8_t" },
     { "name": "builtinDioValues", "type": "bool", "arraySize": 4 },
+    { "name": "extIoValues", "type": "int16_t", "arraySize": 5 },
 
     { "name": "dio8Input", "type": "bool" },
     { "name": "dio8Value", "type": "bool" },
 
     { "name": "analog", "type": "uint16_t", "arraySize": 2 },
-    { "name": "pwm", "type": "int16_t", "arraySize": 4 },
+    { "name": "leftMotor", "type": "int16_t" },
+    { "name": "rightMotor", "type": "int16_t" },
 
     { "name": "batteryMillivolts", "type": "uint16_t" },
 
