@@ -293,7 +293,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         });
     }
 
-    protected async _writeByte(cmd: number, byte: number, delayMs?: number = 0): Promise<void> {
+    protected async _writeByte(cmd: number, byte: number, delayMs: number = 0): Promise<void> {
         return this._i2cQueue.add(() => {
             return this._i2cBus.writeByte(this._i2cAddress, cmd, byte)
             .then(() => {
@@ -306,7 +306,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         });
     }
 
-    protected async _writeWord(cmd: number, word: number, delayMs?: number = 0): Promise<void> {
+    protected async _writeWord(cmd: number, word: number, delayMs: number = 0): Promise<void> {
         return this._i2cQueue.add(() => {
             return this._i2cBus.writeWord(this._i2cAddress, cmd, word)
             .then(() => {
