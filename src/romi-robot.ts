@@ -68,6 +68,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     constructor(bus: I2CPromisifiedBus, address: number, ioConfig?: IPinConfiguration[]) {
         super();
 
+        // TODO We should wrap HW initialization in a promise
+        // that readyP() can return
         this._i2cBus = bus;
         this._i2cAddress = address;
 
@@ -291,15 +293,29 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         });
     }
 
-    protected async _writeByte(cmd: number, byte: number): Promise<void> {
+    protected async _writeByte(cmd: number, byte: number, delayMs?: number = 0): Promise<void> {
         return this._i2cQueue.add(() => {
-            return this._i2cBus.writeByte(this._i2cAddress, cmd, byte);
+            return this._i2cBus.writeByte(this._i2cAddress, cmd, byte)
+            .then(() => {
+                return new Promise(resolve => {
+                    setTimeout(() =>{
+                        resolve();
+                    }, delayMs);
+                });
+            });
         });
     }
 
-    protected async _writeWord(cmd: number, word: number): Promise<void> {
+    protected async _writeWord(cmd: number, word: number, delayMs?: number = 0): Promise<void> {
         return this._i2cQueue.add(() => {
             return this._i2cBus.writeWord(this._i2cAddress, cmd, word)
+            .then(() => {
+                return new Promise(resolve => {
+                    setTimeout(() =>{
+                        resolve();
+                    }, delayMs);
+                });
+            });
         });
     }
 
@@ -368,7 +384,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             pinModeConfig |= ((ioIdx << 2) & 0xC);
             pinModeConfig |= (mode & 0x3);
 
-            this._writeByte(RomiDataBuffer.ioConfig.offset, pinModeConfig);
+            // We're writing these VERY quickly, so give the AVR a little
+            // breathing room to process
+            this._writeByte(RomiDataBuffer.ioConfig.offset, pinModeConfig, 2);
         });
     }
 
