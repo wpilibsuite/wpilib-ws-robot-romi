@@ -386,7 +386,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
             // We're writing these VERY quickly, so give the AVR a little
             // breathing room to process
-            this._writeByte(RomiDataBuffer.ioConfig.offset, pinModeConfig, 2);
+            this._writeByte(RomiDataBuffer.ioConfig.offset, pinModeConfig, 3);
         });
     }
 

@@ -44,6 +44,8 @@ uint8_t ioAinPins[5] = {0, A6, A2, A3, A4};
 
 bool dio8IsInput = false;
 
+bool isConfigured = false;
+
 void setup() {
   rPiLink.init(20);
 
@@ -59,6 +61,10 @@ void loop() {
   // Get the latest data including recent i2c master writes
   rPiLink.updateBuffer();
 
+  if (isConfigured) {
+    rPiLink.buffer.status = 1;
+  }
+
   // Check heartbeat and shutdown motors if necessary
   if (millis() - lastHeartbeat > 1000) {
     rPiLink.buffer.leftMotor = 0;
@@ -73,6 +79,11 @@ void loop() {
   uint8_t builtinConfig = rPiLink.buffer.builtinConfig;
   if ((builtinConfig >> 7) & 0x1) {
     configureBuiltins(builtinConfig);
+  }
+
+  uint8_t ioConfig = rPiLink.buffer.ioConfig;
+  if ((ioConfig >> 7) & 0x1) {
+    configureIO(ioConfig);
   }
 
   if (rPiLink.buffer.dio8Input != dio8IsInput) {
@@ -125,23 +136,8 @@ void loop() {
     }
   }
 
-  // if (dio8IsInput) {
-  //   rPiLink.buffer.dio8Value = digitalRead(11);
-  // }
-  // else {
-  //   digitalWrite(11, rPiLink.buffer.dio8Value ? HIGH : LOW);
-  // }
-
-  // Analog
-  // rPiLink.buffer.analog[0] = analogRead(A6);
-  // rPiLink.buffer.analog[1] = analogRead(A2);
-
   // Motors
   motors.setSpeeds(rPiLink.buffer.leftMotor, rPiLink.buffer.rightMotor);
-
-  // PWMs
-  // pwms[0].write(map(rPiLink.buffer.pwm[2], -400, 400, 0, 180));
-  // pwms[1].write(map(rPiLink.buffer.pwm[3], -400, 400, 0, 180));
 
   // Encoders
   if (rPiLink.buffer.resetLeftEncoder) {
@@ -187,7 +183,7 @@ void configureBuiltins(uint8_t config) {
 }
 
 void configureIO(uint8_t config) {
-  uint8_t ioChannel = (config >> 2) & 0x3;
+  uint8_t ioChannel = (config >> 2) & 0xF;
   uint8_t mode = config & 0x3;
 
   if (ioChannel < 0 || ioChannel > 4) return;
@@ -206,7 +202,15 @@ void configureIO(uint8_t config) {
       pinMode(ioDioPins[ioChannel], INPUT);
       break;
     case kModePwm:
-      pwms[ioChannel].attach(ioDioPins[ioChannel]);
+      if (!pwms[ioChannel].attached()) {
+        pwms[ioChannel].attach(ioDioPins[ioChannel]);
+      }
       break;
   }
+
+  // Also set the status flag
+  rPiLink.buffer.status = 1;
+  isConfigured = true;
+
+  rPiLink.buffer.ioConfig = 0;
 }
