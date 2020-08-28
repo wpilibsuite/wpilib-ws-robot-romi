@@ -2,7 +2,7 @@
 #include <Romi32U4.h>
 #include <ServoT3.h>
 
-#include "shmem_buffer.h";
+#include "shmem_buffer.h"
 
 static constexpr int kModeDigitalOut = 0;
 static constexpr int kModeDigitalIn = 1;
@@ -22,7 +22,7 @@ static constexpr int kModePwm = 3;
 static constexpr int kMaxBuiltInDIO = 8;
 
 // Set up the servos
-Servo pwms[2];
+Servo pwms[5];
 
 Romi32U4Motors motors;
 Romi32U4Encoders encoders;
@@ -38,7 +38,13 @@ uint8_t builtinDio1Config = kModeDigitalOut;
 uint8_t builtinDio2Config = kModeDigitalOut;
 uint8_t builtinDio3Config = kModeDigitalOut;
 
+uint8_t ioChannelModes[5] = {kModeDigitalOut, kModeDigitalOut, kModeDigitalOut, kModeDigitalOut, kModeDigitalOut};
+uint8_t ioDioPins[5] = {11, 4, 20, 21, 22};
+uint8_t ioAinPins[5] = {0, A6, A2, A3, A4};
+
 bool dio8IsInput = false;
+
+bool isConfigured = false;
 
 void setup() {
   rPiLink.init(20);
@@ -55,10 +61,14 @@ void loop() {
   // Get the latest data including recent i2c master writes
   rPiLink.updateBuffer();
 
-  // Check heartbeat
+  if (isConfigured) {
+    rPiLink.buffer.status = 1;
+  }
+
+  // Check heartbeat and shutdown motors if necessary
   if (millis() - lastHeartbeat > 1000) {
-    rPiLink.buffer.pwm[0] = 0;
-    rPiLink.buffer.pwm[1] = 0;
+    rPiLink.buffer.leftMotor = 0;
+    rPiLink.buffer.rightMotor = 0;
   }
 
   if (rPiLink.buffer.heartbeat) {
@@ -69,6 +79,11 @@ void loop() {
   uint8_t builtinConfig = rPiLink.buffer.builtinConfig;
   if ((builtinConfig >> 7) & 0x1) {
     configureBuiltins(builtinConfig);
+  }
+
+  uint8_t ioConfig = rPiLink.buffer.ioConfig;
+  if ((ioConfig >> 7) & 0x1) {
+    configureIO(ioConfig);
   }
 
   if (rPiLink.buffer.dio8Input != dio8IsInput) {
@@ -99,23 +114,30 @@ void loop() {
     ledRed(rPiLink.buffer.builtinDioValues[2]);
   }
 
-  if (dio8IsInput) {
-    rPiLink.buffer.dio8Value = digitalRead(11);
+  // Loop through all available IO pins
+  for (uint8_t i = 0; i < 5; i++) {
+    switch (ioChannelModes[i]) {
+      case kModeDigitalOut: {
+        digitalWrite(ioDioPins[i], rPiLink.buffer.extIoValues[i] ? HIGH : LOW);
+      } break;
+      case kModeDigitalIn: {
+        rPiLink.buffer.extIoValues[i] = digitalRead(ioDioPins[i]);
+      } break;
+      case kModeAnalogIn: {
+        if (ioAinPins[i] != 0) {
+          rPiLink.buffer.extIoValues[i] = analogRead(ioAinPins[i]);
+        }
+      } break;
+      case kModePwm: {
+        if (pwms[i].attached()) {
+          pwms[i].write(map(rPiLink.buffer.extIoValues[i], -400, 400, 0, 180));
+        }
+      } break;
+    }
   }
-  else {
-    digitalWrite(11, rPiLink.buffer.dio8Value ? HIGH : LOW);
-  }
-
-  // Analog
-  rPiLink.buffer.analog[0] = analogRead(A6);
-  rPiLink.buffer.analog[1] = analogRead(A2);
 
   // Motors
-  motors.setSpeeds(rPiLink.buffer.pwm[0], rPiLink.buffer.pwm[1]);
-
-  // PWMs
-  pwms[0].write(map(rPiLink.buffer.pwm[2], -400, 400, 0, 180));
-  pwms[1].write(map(rPiLink.buffer.pwm[3], -400, 400, 0, 180));
+  motors.setSpeeds(rPiLink.buffer.leftMotor, rPiLink.buffer.rightMotor);
 
   // Encoders
   if (rPiLink.buffer.resetLeftEncoder) {
@@ -158,4 +180,37 @@ void configureBuiltins(uint8_t config) {
 
   // Wipe out the register
   rPiLink.buffer.builtinConfig = 0;
+}
+
+void configureIO(uint8_t config) {
+  uint8_t ioChannel = (config >> 2) & 0xF;
+  uint8_t mode = config & 0x3;
+
+  if (ioChannel < 0 || ioChannel > 4) return;
+  ioChannelModes[ioChannel] = mode;
+
+  // Detach any attached servos
+  if (mode != kModePwm && pwms[ioChannel].attached()) {
+    pwms[ioChannel].detach();
+  }
+
+  switch(mode) {
+    case kModeDigitalOut:
+      pinMode(ioDioPins[ioChannel], OUTPUT);
+      break;
+    case kModeDigitalIn:
+      pinMode(ioDioPins[ioChannel], INPUT);
+      break;
+    case kModePwm:
+      if (!pwms[ioChannel].attached()) {
+        pwms[ioChannel].attach(ioDioPins[ioChannel]);
+      }
+      break;
+  }
+
+  // Also set the status flag
+  rPiLink.buffer.status = 1;
+  isConfigured = true;
+
+  rPiLink.buffer.ioConfig = 0;
 }
