@@ -43,6 +43,64 @@ wpi.maven.useFrcMavenLocalDevelopment = true
 wpi.wpilibVersion = "2020.424242.+"
 ```
 
+You will also need to create a file named `WPILibMath2020.json` in the `vendordeps` folder with the following content:
+```
+{
+  "fileName": "WPILibMath2020.json",
+  "name": "WPILib-Math-2020",
+  "version": "2020.0.0",
+  "uuid": "42aa5bbe-f8f5-493f-914a-16cb5d7507f3",
+  "mavenUrls": [],
+  "jsonUrl": "",
+  "javaDependencies": [
+      {
+          "groupId": "edu.wpi.first.wpimath",
+          "artifactId": "wpimath-java",
+          "version": "wpilib"
+      }
+  ],
+  "jniDependencies": [
+      {
+          "groupId": "edu.wpi.first.wpimath",
+          "artifactId": "wpimath-cpp",
+          "version": "wpilib",
+          "isJar": false,
+          "skipInvalidPlatforms": true,
+          "validPlatforms": [
+              "linuxathena",
+              "linuxraspbian",
+              "linuxaarch64bionic",
+              "windowsx86-64",
+              "windowsx86",
+              "linuxx86-64",
+              "osxx86-64"
+          ]
+      }
+  ],
+  "cppDependencies": [
+      {
+          "groupId": "edu.wpi.first.wpimath",
+          "artifactId": "wpimath-cpp",
+          "version": "wpilib",
+          "libName": "wpimath",
+          "headerClassifier": "headers",
+          "sourcesClassifier": "sources",
+          "sharedLibrary": true,
+          "skipInvalidPlatforms": true,
+          "binaryPlatforms": [
+              "linuxathena",
+              "linuxraspbian",
+              "linuxaarch64bionic",
+              "windowsx86-64",
+              "windowsx86",
+              "linuxx86-64",
+              "osxx86-64"
+          ]
+      }
+  ]
+}
+```
+
 With this, your robot project is set to be run against the local development build of WPILib.
 
 ### Configuring Robot Project
