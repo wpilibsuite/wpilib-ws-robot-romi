@@ -27,7 +27,7 @@
   "dependencies": {
     "commander": "^6.1.0",
     "promise-queue": "^2.2.5",
-    "wpilib-ws-robot": "0.0.6"
+    "wpilib-ws-robot": "0.0.7"
   },
   "optionalDependencies": {
     "i2c-bus": "^5.2.0"
