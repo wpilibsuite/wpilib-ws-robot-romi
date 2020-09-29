@@ -5,10 +5,42 @@ Pololu Romi 32U4 Reference Robot for WPILib WebSocket Interface
 ## Introduction
 This repository contains a reference implementation of a robot that can be controlled via the WPILib HALSim WebSocket extensions. The chassis and controller are based around the [Romi robot](https://www.pololu.com/category/202/romi-chassis-and-accessories) and associated [Control Board](https://www.pololu.com/product/3544) from Pololu.
 
-## Installation
-To install the application globally, run `npm install -g wpilib-ws-robot-romi`
+## Dependencies
+It is assumed that the steps necessary for installation of [FRC 2020](https://docs.wpilib.org/en/stable/docs/getting-started/getting-started-frc-control-system/index.html) (specifically FRC VS Code 2020 and FRC Driver Station) have been executed prior as they are a dependency for this project.
 
-Once that's done, you will be able to execute the `wpilibws-romi` application, which will launch a WebSocket server on port 8080, as well as attempt to connect to Romi 32U4 control board.
+## Raspbery Pi OS and Code Installation
+1. Format and install Raspberry Pi OS on your micro SD Card. The steps to do this can be found [here](https://www.raspberrypi.org/documentation/installation/installing-images/) (We recommend using Raspberry Pi Imager) 
+1.  Configure your Raspberry Pi for Wifi and ssh per steps [here](https://desertbot.io/blog/headless-raspberry-pi-3-bplus-ssh-wifi-setup)
+3. Insert SD card into the Pi and power on
+1. SSH in using pi@raspberrypi (username pi, password raspberry)
+1. Setup i2c:<pre><code>sudo raspi-config
+</code></pre>
+6. Enable i2c per screenshots below:
+![](resources/raspi-config-screen-1.png)
+![](resources/raspi-config-screen-2.png)
+![](resources/raspi-config-screen-3.png)
+7. Install nodejs on the Pi leveraging [nvm](https://github.com/nvm-sh/nvm)
+8. Install romi node package:<pre><code>npm install -g wpilib-ws-robot-romi</code></pre>
+Or clone this repository and use:<pre></code>npm install</code></pre>
+9. Run the binary. This will launch a WebSocket server on port 8080, as well as attempt to connect to Romi 32U4 control board.<pre><code>wpilibws-romi
+</code></pre>
+Or if cloned, use:<pre><code>npm run start</code></pre>
+10. (Optional) set wpilibws-romi to launch upon startup. *If you are using this repository locally on the pi, change 'ExecStart=wpilibws-romi' to 'ExecStart=node \<directory cloned\>/wpilib-ws-robot-romi/dist/index.js' instead.*
+Create wpilibws-romi.service in `/etc/systemd/system/` with the following code:<pre><code>[Unit]
+Description=WPILIB Drivethrough
+After=network.target<br />
+[Service]
+ExecStart=wpilibws-romi
+WorkingDirectory=/home
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi<br />
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+Then run the following command:<pre><code>sudo systemctl enable wpilibws-romi.service
+</code></pre>
 
 NOTE: The application will only run correctly on a Raspberry Pi that is connected to the Romi 32U4 board. (This is a reference implementation after all)
 
@@ -17,8 +49,6 @@ To connect your WPILib-based robot program to the Romi reference robot, you will
 - A Raspberry Pi 3/4 and a Romi 32U4 control board (follow the hardware assembly instructions [here](https://www.pololu.com/blog/663/building-a-raspberry-pi-robot-with-the-romi-chassis))
 - Appropriate firmware on the Romi (See the [firmware README](firmware/wpilib-ws-romi/README.md) for instructions)
 - An up-to-date version of WPILib (See Note on WPILib below for more information)
-- An installed version of this application (See Installation)
-    - Or if you'd prefer to run from source, `npm install && npm run start`
 
 ### Note on WPILib
 As of this writing, a published version of WPILib containing the WebSocket extensions is not yet available. To test this out, you will need to build a local copy of WPILib and have it linked to your robot code.
@@ -43,7 +73,7 @@ wpi.maven.useFrcMavenLocalDevelopment = true
 wpi.wpilibVersion = "2020.424242.+"
 ```
 
-You will also need to create a file named `WPILibMath2020.json` in the `vendordeps` folder with the following content:
+You will also need to create a file named `WPILibMath2020.json` in the `vendordeps` folder (at root level of VSCode project) with the following content:
 ```
 {
   "fileName": "WPILibMath2020.json",
