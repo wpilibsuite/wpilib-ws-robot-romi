@@ -9,13 +9,13 @@ interface IEncoderInfo {
     lastRobotValue: number; // The last robot-reported value
 }
 
-enum IOPinMode {
+export enum IOPinMode {
     DIO = "dio",
     ANALOG_IN = "ain",
     PWM = "pwm"
 }
 
-interface IPinConfiguration {
+export interface IPinConfiguration {
     pinNumber: number;
     analogChannel?: number;
     mode: IOPinMode
@@ -74,8 +74,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._i2cAddress = address;
 
         // Set up the overlay configuration
-        if (ioConfig && this._verifyConfiguration(ioConfig)) {
-            this._ioConfiguration = ioConfig;
+        if (ioConfig) {
+            if(this._verifyConfiguration(ioConfig)) {
+                this._ioConfiguration = ioConfig;
+            }
+            else {
+                console.log("Error verifying pin configuration. Reverting to default");
+            }
         }
 
         this._configureIO();
