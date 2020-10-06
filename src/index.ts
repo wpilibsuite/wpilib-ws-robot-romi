@@ -1,18 +1,10 @@
 #!/usr/bin/env node
-import WPILibWSRomiRobot, { IOPinMode, IPinConfiguration } from "./romi-robot";
+import WPILibWSRomiRobot, { IOPinMode, IPinConfiguration, DEFAULT_IO_CONFIGURATION, NUM_CONFIGURABLE_PINS } from "./romi-robot";
 import { WPILibWSRobotEndpoint, WPILibWSServerConfig, WPILibWSClientConfig } from "wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 import program from "commander";
 import jsonfile from "jsonfile";
-
-const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
-    { pinNumber: 11, mode: IOPinMode.DIO },
-    { pinNumber: 4, analogChannel: 6, mode: IOPinMode.ANALOG_IN },
-    { pinNumber: 20, analogChannel: 2, mode: IOPinMode.ANALOG_IN },
-    { pinNumber: 21, analogChannel: 3, mode: IOPinMode.PWM },
-    { pinNumber: 22, analogChannel: 4, mode: IOPinMode.PWM }
-];
 
 // Set up command line options
 program
@@ -41,7 +33,8 @@ if (program.endpointType === "client" && program.host === undefined) {
 
 const endpointType = program.endpointType;
 
-// If we are provided a config file, try reading it
+// If we are provided a config file, try reading it. If this is undefined, the robot controller constructor will use
+// its built in default mapping instead
 let hardwareConfig: IPinConfiguration[] | undefined = undefined;
 
 if (program.hardwareConfig !== undefined) {
@@ -51,14 +44,16 @@ if (program.hardwareConfig !== undefined) {
         // check if the raw object we get back is an array
         if (portConfigsRaw instanceof Array) {
             const portConfigs: string[] = (portConfigsRaw as string[]);
-            if (portConfigs.length < 5) {
+            if (portConfigs.length === NUM_CONFIGURABLE_PINS) {
                 console.error("Invalid number of port configurations");
                 process.exit(1);
             }
 
-            hardwareConfig = DEFAULT_IO_CONFIGURATION;
+            // Fill the default config
+            hardwareConfig = [];
+            DEFAULT_IO_CONFIGURATION.forEach(val => hardwareConfig.push(Object.assign({}, val)));
 
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < NUM_CONFIGURABLE_PINS; i++) {
                 let pinMode: IOPinMode;
                 switch (portConfigs[i].toLowerCase()) {
                     case "pwm":

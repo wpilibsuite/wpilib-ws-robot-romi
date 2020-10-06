@@ -36,13 +36,15 @@ const IO_CAPABILITIES: IPinCapability[] = [
     { pinNumber: 22, analogChannel: 4, supportedModes: [IOPinMode.DIO, IOPinMode.ANALOG_IN, IOPinMode.PWM] },
 ];
 
-const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
+export const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
     { pinNumber: 11, mode: IOPinMode.DIO },
     { pinNumber: 4, analogChannel: 6, mode: IOPinMode.ANALOG_IN },
     { pinNumber: 20, analogChannel: 2, mode: IOPinMode.ANALOG_IN },
     { pinNumber: 21, analogChannel: 3, mode: IOPinMode.PWM },
     { pinNumber: 22, analogChannel: 4, mode: IOPinMode.PWM }
 ];
+
+export const NUM_CONFIGURABLE_PINS: number = 5;
 
 export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
