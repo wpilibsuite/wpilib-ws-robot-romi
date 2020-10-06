@@ -9,13 +9,13 @@ interface IEncoderInfo {
     lastRobotValue: number; // The last robot-reported value
 }
 
-enum IOPinMode {
+export enum IOPinMode {
     DIO = "dio",
     ANALOG_IN = "ain",
     PWM = "pwm"
 }
 
-interface IPinConfiguration {
+export interface IPinConfiguration {
     pinNumber: number;
     analogChannel?: number;
     mode: IOPinMode
@@ -36,13 +36,15 @@ const IO_CAPABILITIES: IPinCapability[] = [
     { pinNumber: 22, analogChannel: 4, supportedModes: [IOPinMode.DIO, IOPinMode.ANALOG_IN, IOPinMode.PWM] },
 ];
 
-const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
+export const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
     { pinNumber: 11, mode: IOPinMode.DIO },
     { pinNumber: 4, analogChannel: 6, mode: IOPinMode.ANALOG_IN },
     { pinNumber: 20, analogChannel: 2, mode: IOPinMode.ANALOG_IN },
     { pinNumber: 21, analogChannel: 3, mode: IOPinMode.PWM },
     { pinNumber: 22, analogChannel: 4, mode: IOPinMode.PWM }
 ];
+
+export const NUM_CONFIGURABLE_PINS: number = 5;
 
 export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
@@ -74,8 +76,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._i2cAddress = address;
 
         // Set up the overlay configuration
-        if (ioConfig && this._verifyConfiguration(ioConfig)) {
-            this._ioConfiguration = ioConfig;
+        if (ioConfig) {
+            if(this._verifyConfiguration(ioConfig)) {
+                this._ioConfiguration = ioConfig;
+            }
+            else {
+                console.log("Error verifying pin configuration. Reverting to default");
+            }
         }
 
         this._configureIO();
