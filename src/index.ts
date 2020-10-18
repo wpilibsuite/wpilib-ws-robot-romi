@@ -44,7 +44,7 @@ if (program.hardwareConfig !== undefined) {
         // check if the raw object we get back is an array
         if (portConfigsRaw instanceof Array) {
             const portConfigs: string[] = (portConfigsRaw as string[]);
-            if (portConfigs.length === NUM_CONFIGURABLE_PINS) {
+            if (portConfigs.length !== NUM_CONFIGURABLE_PINS) {
                 console.error("Invalid number of port configurations");
                 process.exit(1);
             }
