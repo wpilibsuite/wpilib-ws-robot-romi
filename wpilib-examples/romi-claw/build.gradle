@@ -3,6 +3,9 @@ plugins {
     id "edu.wpi.first.GradleRIO" version "2020.3.2"
 }
 
+wpi.maven.useDevelopment = true
+wpi.wpilibVersion = '2020.+'
+
 sourceCompatibility = JavaVersion.VERSION_11
 targetCompatibility = JavaVersion.VERSION_11
 
@@ -57,6 +60,8 @@ dependencies {
     // Enable simulation gui support. Must check the box in vscode to enable support
     // upon debugging
     simulation wpi.deps.sim.gui(wpi.platforms.desktop, false)
+    simulation "edu.wpi.first.halsim:halsim_ds_socket:${wpi.wpilibVersion}:${wpi.platforms.desktop}@zip"
+    simulation "edu.wpi.first.halsim:halsim_ws_client:${wpi.wpilibVersion}:${wpi.platforms.desktop}@zip"
 }
 
 // Setting up my Jar File. In this case, adding all libraries into the main jar ('fat jar')
