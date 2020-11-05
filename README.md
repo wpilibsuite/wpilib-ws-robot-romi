@@ -5,7 +5,10 @@ Pololu Romi 32U4 Reference Robot for WPILib WebSocket Interface
 ## **Introduction**
 This repository contains a reference implementation of a robot that can be controlled via the WPILib HALSim WebSocket extensions. The chassis and controller are based around the [Romi robot](https://www.pololu.com/category/202/romi-chassis-and-accessories) and associated [Control Board](https://www.pololu.com/product/3544) from Pololu.
 
-## **Dependencies**
+## **Kit of Parts**
+Please refer to our [Kit of Parts](docs/KitOfParts.md) for phyical hardware needs.
+
+## **Software Dependencies**
 It is assumed that the steps necessary for installation of [FRC 2020](https://docs.wpilib.org/en/stable/docs/getting-started/getting-started-frc-control-system/index.html) (specifically FRC VS Code 2020 and FRC Driver Station) have been executed prior as they are a dependency for this project.
 
 ## **Raspbery Pi Installation**
