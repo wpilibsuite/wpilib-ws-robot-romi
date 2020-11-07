@@ -1,0 +1,15 @@
+[Unit]
+Description=WPILib WS Romi
+After=network.target
+
+[Service]
+ExecStart=/home/pi/.nvm/versions/node/v14.15.0/bin/node /home/pi/.nvm/versions/node/v14.15.0/bin/wpilibws-romi
+WorkingDirectory=/home
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
+
