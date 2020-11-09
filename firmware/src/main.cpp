@@ -1,3 +1,6 @@
+
+#include <Arduino.h>
+
 #include <PololuRPiSlave.h>
 #include <Romi32U4.h>
 #include <ServoT3.h>
@@ -43,8 +46,66 @@ uint8_t ioDioPins[5] = {11, 4, 20, 21, 22};
 uint8_t ioAinPins[5] = {0, A6, A2, A3, A4};
 
 bool dio8IsInput = false;
-
 bool isConfigured = false;
+unsigned long lastHeartbeat = 0;
+
+
+void configureBuiltins(uint8_t config) {
+  // structure
+  // [ConfigFlag] [Unused] [Unused] [Unused] [Channel] [Mode]
+  //       7         6        5         4        3,2     1,0
+  uint8_t channel = (config >> 2) & 0x3;
+  uint8_t mode = config & 0x3;
+
+  // Bail early if we get an invalid DIO channel or mode
+  // Also, only DIO 1 and 2 can be configured
+  // TODO: set an error flag somewhere?
+  if (channel > 3 || channel == 0 || channel == 3) return;
+  if (mode > 1) return;
+
+  if (channel == 1) {
+    builtinDio1Config = mode;
+  }
+  else if (channel == 2) {
+    builtinDio2Config = mode;
+  }
+
+  // Wipe out the register
+  rPiLink.buffer.builtinConfig = 0;
+}
+
+void configureIO(uint8_t config) {
+  uint8_t ioChannel = (config >> 2) & 0xF;
+  uint8_t mode = config & 0x3;
+
+  if (ioChannel < 0 || ioChannel > 4) return;
+  ioChannelModes[ioChannel] = mode;
+
+  // Detach any attached servos
+  if (mode != kModePwm && pwms[ioChannel].attached()) {
+    pwms[ioChannel].detach();
+  }
+
+  switch(mode) {
+    case kModeDigitalOut:
+      pinMode(ioDioPins[ioChannel], OUTPUT);
+      break;
+    case kModeDigitalIn:
+      pinMode(ioDioPins[ioChannel], INPUT);
+      break;
+    case kModePwm:
+      if (!pwms[ioChannel].attached()) {
+        pwms[ioChannel].attach(ioDioPins[ioChannel]);
+      }
+      break;
+  }
+
+  // Also set the status flag
+  rPiLink.buffer.status = 1;
+  isConfigured = true;
+
+  rPiLink.buffer.ioConfig = 0;
+}
 
 void setup() {
   rPiLink.init(20);
@@ -54,8 +115,6 @@ void setup() {
 
   buzzer.play("v10>>g16>>>c16");
 }
-
-unsigned long lastHeartbeat = 0;
 
 void loop() {
   // Get the latest data including recent i2c master writes
@@ -156,61 +215,4 @@ void loop() {
   rPiLink.buffer.batteryMillivolts = readBatteryMillivolts();
 
   rPiLink.finalizeWrites();
-}
-
-void configureBuiltins(uint8_t config) {
-  // structure
-  // [ConfigFlag] [Unused] [Unused] [Unused] [Channel] [Mode]
-  //       7         6        5         4        3,2     1,0
-  uint8_t channel = (config >> 2) & 0x3;
-  uint8_t mode = config & 0x3;
-
-  // Bail early if we get an invalid DIO channel or mode
-  // Also, only DIO 1 and 2 can be configured
-  // TODO: set an error flag somewhere?
-  if (channel > 3 || channel == 0 || channel == 3) return;
-  if (mode > 1) return;
-
-  if (channel == 1) {
-    builtinDio1Config = mode;
-  }
-  else if (channel == 2) {
-    builtinDio2Config = mode;
-  }
-
-  // Wipe out the register
-  rPiLink.buffer.builtinConfig = 0;
-}
-
-void configureIO(uint8_t config) {
-  uint8_t ioChannel = (config >> 2) & 0xF;
-  uint8_t mode = config & 0x3;
-
-  if (ioChannel < 0 || ioChannel > 4) return;
-  ioChannelModes[ioChannel] = mode;
-
-  // Detach any attached servos
-  if (mode != kModePwm && pwms[ioChannel].attached()) {
-    pwms[ioChannel].detach();
-  }
-
-  switch(mode) {
-    case kModeDigitalOut:
-      pinMode(ioDioPins[ioChannel], OUTPUT);
-      break;
-    case kModeDigitalIn:
-      pinMode(ioDioPins[ioChannel], INPUT);
-      break;
-    case kModePwm:
-      if (!pwms[ioChannel].attached()) {
-        pwms[ioChannel].attach(ioDioPins[ioChannel]);
-      }
-      break;
-  }
-
-  // Also set the status flag
-  rPiLink.buffer.status = 1;
-  isConfigured = true;
-
-  rPiLink.buffer.ioConfig = 0;
 }
