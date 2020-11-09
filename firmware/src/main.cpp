@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 
 #include <PololuRPiSlave.h>
@@ -45,10 +44,13 @@ uint8_t ioChannelModes[5] = {kModeDigitalOut, kModeDigitalOut, kModeDigitalOut, 
 uint8_t ioDioPins[5] = {11, 4, 20, 21, 22};
 uint8_t ioAinPins[5] = {0, A6, A2, A3, A4};
 
-bool dio8IsInput = false;
+bool isTestMode = false;
 bool isConfigured = false;
+
 unsigned long lastHeartbeat = 0;
 
+bool testModeLedFlag = false;
+unsigned long lastSwitchTime = 0;
 
 void configureBuiltins(uint8_t config) {
   // structure
@@ -74,56 +76,139 @@ void configureBuiltins(uint8_t config) {
   rPiLink.buffer.builtinConfig = 0;
 }
 
-void configureIO(uint8_t config) {
-  uint8_t ioChannel = (config >> 2) & 0xF;
-  uint8_t mode = config & 0x3;
+void configureIO(uint16_t config) {
+  // 16 bit config register
+  //
+  // MSB
+  // 0 | NEW CONFIG FLAG |
+  //   |-----------------|
+  // 1 |  Pin 0 Mode     |
+  // 2 |  ArdPin 11      |
+  //   |-----------------|
+  // 3 |  Pin 1 Mode     |
+  // 4 |  ArdPin 4       |
+  //   |-----------------|
+  // 5 |  Pin 2 Mode     |
+  // 6 |  ArdPin 20      |
+  //   |-----------------|
+  // 7 |  Pin 3 Mode     |
+  // 8 |  ArdPin 21      |
+  //   |-----------------|
+  // 9 |  Pin 4 Mode     |
+  // 10|  ArdPin 22      |
+  //   |-----------------|
+  // 11|  RESERVED       |
+  // 12|                 |
+  // 13|                 |
+  // 14|                 |
+  // 15|                 |
+  for (uint8_t ioChannel = 0; ioChannel < 5; ioChannel++) {
+    uint8_t offset = 13 - (2 * ioChannel);
+    uint8_t mode = (config >> offset) & 0x3;
 
-  if (ioChannel < 0 || ioChannel > 4) return;
-  ioChannelModes[ioChannel] = mode;
+    // Disconnect PWMs
+    if (pwms[ioChannel].attached()) {
+      pwms[ioChannel].detach();
+    }
 
-  // Detach any attached servos
-  if (mode != kModePwm && pwms[ioChannel].attached()) {
-    pwms[ioChannel].detach();
-  }
+    ioChannelModes[ioChannel] = mode;
 
-  switch(mode) {
-    case kModeDigitalOut:
-      pinMode(ioDioPins[ioChannel], OUTPUT);
-      break;
-    case kModeDigitalIn:
-      pinMode(ioDioPins[ioChannel], INPUT);
-      break;
-    case kModePwm:
-      if (!pwms[ioChannel].attached()) {
+    switch(mode) {
+      case kModeDigitalOut:
+        pinMode(ioDioPins[ioChannel], OUTPUT);
+        break;
+      case kModeDigitalIn:
+        pinMode(ioDioPins[ioChannel], INPUT_PULLUP);
+        break;
+      case kModePwm:
         pwms[ioChannel].attach(ioDioPins[ioChannel]);
-      }
-      break;
+        break;
+      case kModeAnalogIn:
+        if (ioChannel > 0) {
+          // Make sure we set the pin back correctly
+          digitalWrite(ioAinPins[ioChannel], LOW);
+          pinMode(ioAinPins[ioChannel], INPUT);
+        }
+        break;
+    }
   }
 
   // Also set the status flag
   rPiLink.buffer.status = 1;
   isConfigured = true;
 
+  // Reset the config register
   rPiLink.buffer.ioConfig = 0;
 }
 
-void setup() {
-  rPiLink.init(20);
+// Initialization routines for test mode
+void testModeInit() {
+  buzzer.play("!L16 v10 cdefgab>c");
 
-  pwms[0].attach(21);
-  pwms[1].attach(22);
+  Serial.begin(9600);
 
+}
+
+// Initialization routines for normal operation
+void normalModeInit() {
   buzzer.play("v10>>g16>>>c16");
 }
 
-void loop() {
-  // Get the latest data including recent i2c master writes
-  rPiLink.updateBuffer();
+void testModeConfigureIO(uint16_t config) {
+  for (uint8_t ioChannel = 0; ioChannel < 5; ioChannel++) {
+    uint8_t offset = 13 - (2 * ioChannel);
+    uint8_t mode = (config >> offset) & 0x3;
 
-  if (isConfigured) {
-    rPiLink.buffer.status = 1;
+    Serial.print(ioChannel);
+    Serial.print(": ");
+    switch(mode) {
+      case kModeDigitalOut:
+        Serial.print("DOUT");
+        break;
+      case kModeDigitalIn:
+        Serial.print("DIN");
+        break;
+      case kModePwm:
+        Serial.print("PWM");
+        break;
+      case kModeAnalogIn:
+        Serial.print("AIN");
+        break;
+    }
+
+    if (ioChannel < 4) {
+      Serial.print(", ");
+    }
+  }
+  Serial.println("");
+
+  // Also set the status flag
+  rPiLink.buffer.status = 1;
+  isConfigured = true;
+
+  // Reset the config register
+  rPiLink.buffer.ioConfig = 0;
+}
+
+void testModeLoop() {
+  // Used to verify mode settings
+  uint16_t ioConfig = rPiLink.buffer.ioConfig;
+  if ((ioConfig >> 15) & 0x1) {
+    Serial.println("Requested to configure IO pins");
+    testModeConfigureIO(ioConfig);
   }
 
+  // Flash the LEDs
+  if (millis() - lastSwitchTime > 500) {
+    lastSwitchTime = millis();
+    testModeLedFlag = !testModeLedFlag;
+
+    ledGreen(testModeLedFlag);
+    ledRed(!testModeLedFlag);
+  }
+}
+
+void normalModeLoop() {
   // Check heartbeat and shutdown motors if necessary
   if (millis() - lastHeartbeat > 1000) {
     rPiLink.buffer.leftMotor = 0;
@@ -140,19 +225,9 @@ void loop() {
     configureBuiltins(builtinConfig);
   }
 
-  uint8_t ioConfig = rPiLink.buffer.ioConfig;
-  if ((ioConfig >> 7) & 0x1) {
+  uint16_t ioConfig = rPiLink.buffer.ioConfig;
+  if ((ioConfig >> 15) & 0x1) {
     configureIO(ioConfig);
-  }
-
-  if (rPiLink.buffer.dio8Input != dio8IsInput) {
-    dio8IsInput = rPiLink.buffer.dio8Input;
-    if (dio8IsInput) {
-      pinMode(11, INPUT);
-    }
-    else {
-      pinMode(11, OUTPUT);
-    }
   }
 
   // Update the built-ins
@@ -213,6 +288,42 @@ void loop() {
   rPiLink.buffer.rightEncoder = encoders.getCountsRight();
 
   rPiLink.buffer.batteryMillivolts = readBatteryMillivolts();
+}
+
+void setup() {
+  rPiLink.init(20);
+
+  // Determine if we should enter test mode
+  // If button A and B are pressed during power up, enter test mode
+  if (buttonA.isPressed() && buttonB.isPressed()) {
+    isTestMode = true;
+  }
+
+  if (isTestMode) {
+    testModeInit();
+  }
+  else {
+    normalModeInit();
+  }
+}
+
+void loop() {
+  // Get the latest data including recent i2c master writes
+  rPiLink.updateBuffer();
+
+  // Constantly write the firmware ident
+  rPiLink.buffer.firmwareIdent = FIRMWARE_IDENT;
+
+  if (isConfigured) {
+    rPiLink.buffer.status = 1;
+  }
+
+  if (isTestMode) {
+    testModeLoop();
+  }
+  else {
+    normalModeLoop();
+  }
 
   rPiLink.finalizeWrites();
 }

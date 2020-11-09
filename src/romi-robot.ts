@@ -65,6 +65,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _extAnalogInPins: number[] = []; // Idx maps to Analog In channel of idx. Value is IO pin index
     private _extPwmPins: number[] = []; // Idx maps to PWM channel of (2 + idx). Value is the IO pin index
 
+    private _extPinConfiguration: number[] = [];
+
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
     constructor(bus: I2CPromisifiedBus, address: number, ioConfig?: IPinConfiguration[]) {
@@ -173,11 +175,12 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 return;
             }
 
-            let pinModeConfig = (1 << 7);
-            pinModeConfig |= ((this._extDioPins[extDioIdx] << 2) & 0xC);
-            pinModeConfig |= mode === DigitalChannelMode.INPUT ? 1 : 0;
+            // Update the _extPinConfiguration array
+            const ioPin: number = this._extDioPins[extDioIdx];
+            this._extPinConfiguration[ioPin] = channelMode;
 
-            this._writeByte(RomiDataBuffer.ioConfig.offset, pinModeConfig);
+            // Write the configuration
+            this._writeIOConfiguration();
         }
 
         if (mode !== DigitalChannelMode.INPUT) {
@@ -353,18 +356,23 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._extAnalogInPins = [];
         this._extDioPins = [];
         this._extPwmPins = [];
+        this._extPinConfiguration = [];
 
         this._ioConfiguration.forEach((pinConfig, ioIdx) => {
             switch (pinConfig.mode) {
                 case IOPinMode.ANALOG_IN:
+                    this._extPinConfiguration.push(2);
                     this._extAnalogInPins.push(ioIdx);
                     // We also need to add these to the input set
                     this._analogInputValues.set(this._extAnalogInPins.length - 1, 0.0);
                     break;
                 case IOPinMode.DIO:
+                    // Default to OUTPUT for digital pins
+                    this._extPinConfiguration.push(0);
                     this._extDioPins.push(ioIdx);
                     break;
                 case IOPinMode.PWM:
+                    this._extPinConfiguration.push(3);
                     this._extPwmPins.push(ioIdx);
                     break;
             }
@@ -377,24 +385,14 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
      * Do the actual configuration write to the romi
      */
     private _writeIOConfiguration() {
-        this._ioConfiguration.forEach((pinConfig, ioIdx) => {
-            let mode: number = 0;
+        let configRegister: number = (1 << 15);
 
-            if (pinConfig.mode === IOPinMode.ANALOG_IN) {
-                mode = 2;
-            }
-            else if (pinConfig.mode === IOPinMode.PWM) {
-                mode = 3;
-            }
-            // Generate the byte
-            let pinModeConfig = (1 << 7);
-            pinModeConfig |= ((ioIdx << 2) & 0xC);
-            pinModeConfig |= (mode & 0x3);
-
-            // We're writing these VERY quickly, so give the AVR a little
-            // breathing room to process
-            this._writeByte(RomiDataBuffer.ioConfig.offset, pinModeConfig, 3);
+        this._extPinConfiguration.forEach((pinMode, ioIdx) => {
+            let pinModeConfig: number = (pinMode & 0x3) << (13 - (2 * ioIdx));
+            configRegister |= pinModeConfig;
         });
+
+        this._writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3);
     }
 
     private _bulkAnalogRead() {
