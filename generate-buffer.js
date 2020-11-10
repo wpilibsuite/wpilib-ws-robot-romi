@@ -98,5 +98,5 @@ SharedMemLayout.forEach(field => {
 tsOutput += "};\n";
 
 // Write the files
-fs.writeFileSync("./firmware/wpilib-ws-romi/shmem_buffer.h", cppOutput);
+fs.writeFileSync("./firmware/include/shmem_buffer.h", cppOutput);
 fs.writeFileSync("./src/romi-shmem-buffer.ts", tsOutput);
