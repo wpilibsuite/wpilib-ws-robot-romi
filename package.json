@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && pio run -d firmware",
     "gen-shmem": "node generate-buffer.js",
     "start": "npm run build && node dist/index.js",
     "prepublishOnly": "npm run build"
@@ -15,15 +15,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bb-frc-workshops/wpilib-ws-robot-romi.git"
+    "url": "git+https://github.com/wpilibsuite/wpilib-ws-robot-romi.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/bb-frc-workshops/wpilib-ws-robot-romi/issues"
+    "url": "https://github.com/wpilibsuite/wpilib-ws-robot-romi/issues"
   },
-  "homepage": "https://github.com/bb-frc-workshops/wpilib-ws-robot-romi#readme",
+  "homepage": "https://github.com/wpilibsuite/wpilib-ws-robot-romi#readme",
   "dependencies": {
     "commander": "^6.1.0",
     "jsonfile": "^6.0.1",
@@ -42,6 +42,7 @@
     "uuid": "^8.3.0"
   },
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "firmware/.pio/build/a-star32U4/firmware.hex"
   ]
 }

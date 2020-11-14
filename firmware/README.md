@@ -30,13 +30,6 @@ Additionally, the middle power rail is not connected to anything, so solder anot
 
 Once this is done, your hardware is ready for use. Read ahead for instructions on how to install the firmware on the board.
 
-## Firmware
-The `wpilib-ws-romi.ino` file contains the firmware for the reference robot. You can use the Arduino IDE to upload it.
-
-The firmware uses a modified version of the `Servo` library. The built in `Servo` library uses `timer1` on the 32U4, which interferes with some of the other peripherals on the board. Thus we have included a version of `Servo` that uses `timer3` instead, and is named `ServoT3`.
-
-To use this in the Arduino IDE, copy the `ServoT3` folder from `firmware/libs` into your `~/Arduino/libraries` folder.
-
 ## Pin Mappings
 For simplicity, we provide a hardcoded mapping of WPILib channels/devices to a subset of the IO pins available on the Romi.
 
@@ -64,3 +57,18 @@ Writes to DIO 0, 4, 5, 6 and 7 will result in no-ops.
 - PWM 1 -> Right Motor
 - PWM 2 -> Pin 21 / A3
 - PWM 3 -> Pin 22 / A4
+
+## Firmware
+**NOTE: This section is for use if you plan to make changes to the Romi firmware.**
+
+The `wpilib-ws-romi.ino` file contains the firmware for the reference robot. You can use the Arduino IDE to upload it.
+
+The firmware uses a modified version of the `Servo` library. The built in `Servo` library uses `timer1` on the 32U4, which interferes with some of the other peripherals on the board. Thus we have included a version of `Servo` that uses `timer3` instead, and is named `ServoT3`.
+
+To use this in the Arduino IDE, copy the `ServoT3` folder from `firmware/libs` into your `~/Arduino/libraries` folder.
+
+Additionally, you can use:
+<pre>pip install platformio
+pip run firmware
+</pre>
+This will generate the hex executable `firmware/.pio/build/a-start32u4/firmware.hex` that can then be uploaded to the Romi.
