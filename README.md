@@ -53,7 +53,7 @@ NOTE: The application will only run correctly on a Raspberry Pi that is connecte
 ## **Controlling The Robot via WPILib**
 To connect your WPILib-based robot program to the Romi reference robot, you will need a few things:
 - A Raspberry Pi 3/4 and a Romi 32U4 control board (follow the hardware assembly instructions [here](https://www.pololu.com/blog/663/building-a-raspberry-pi-robot-with-the-romi-chassis))
-- Appropriate firmware on the Romi (See the [firmware README](firmware/wpilib-ws-romi/README.md) for instructions)
+- Appropriate firmware on the Romi (See the [firmware README](firmware/README.md) for instructions)
 - An up-to-date version of WPILib (See Note on WPILib below for more information)
 
 ### **Note on WPILib**
@@ -166,7 +166,7 @@ Upon clicking `OK`, your robot project should start running on the desktop, and 
 
 ![](resources/halsim-extension-start.png)
 
-If you see the line `WebSocket Connected`, you have established a connection to your robot! From this point, your WPILib-based robot code will trigger corresponding behaviors on the Romi (e.g. if you output `HIGH` on `DigitalOutput` channel 3, the yellow LED on the Romi will turn on). For more information about the pin mappings and assignments, see the [firmware README](firmware/wpilib-ws-romi/README.md).
+If you see the line `WebSocket Connected`, you have established a connection to your robot! From this point, your WPILib-based robot code will trigger corresponding behaviors on the Romi (e.g. if you output `HIGH` on `DigitalOutput` channel 3, the yellow LED on the Romi will turn on). For more information about the pin mappings and assignments, see the [firmware README](firmware/README.md).
 
 ## **Theory of Operation**
 This section provides more technical details on how this package works.
@@ -177,7 +177,7 @@ The Raspberry Pi and Romi 32U4 boards are connected via the 40-pin connector, an
 Both boards essentially utilize a "shared memory buffer" to read/write to. The layout of this buffer can be found in the `sharedmem.json` file. Since both the firmware and JS code need to have the same buffer layout, the `generate-buffer.js` script reads in the `sharedmem.json` file and automatically generates a `shmem_buffer.h` file for the firmware and a `romi-shmem-buffer.ts` file for the Node application, thus keeping both sets of files in sync.
 
 ### **Application Structure**
-The main entry point for the application is `src/index.ts`. The file is fairly small and serves as a binding layer for the `WPILibWSRomiRobot` class (which is defined in `src/romi-robot.ts`) and the `WPILibWSRobotEndpoint` class (which is defined in the [wpilib-ws-robot](https://github.com/bb-frc-workshops/wpilib-ws-robot) NPM package).
+The main entry point for the application is `src/index.ts`. The file is fairly small and serves as a binding layer for the `WPILibWSRomiRobot` class (which is defined in `src/romi-robot.ts`) and the `WPILibWSRobotEndpoint` class (which is defined in the [wpilib-ws-robot](https://github.com/wpilibsuite/wpilib-ws-robot) NPM package).
 
 The `wpilib-ws-robot` package provides a wrapper around the guts of the WPILib WebSocket protocol, and allows developers to easily interface with other kinds of robots, simply by extending from the `WPILibWSRobotBase` class (also exposed by `wpilib-ws-robot`).
 
@@ -186,6 +186,6 @@ In the `src/romi-robot.ts` file, you can see how the defined class interacts wit
 The `src/i2c` folder contains both an I2C abstraction layer, and concrete implementations of a Raspberry Pi compatible I2C bus (`src/i2c/hw-i2c.ts`) and a mock I2C bus (`src/i2c/mock-i2c.ts`) that can be used for testing on non-Raspberry Pi platforms.
 
 ### **`wpilib-ws-robot` and `node-wpilib-ws` Packages**
-This application depends on the `wpilib-ws-robot` package (as mentioned above), which in turn depends on `node-wpilib-ws`. The `node-wpilib-ws` package contains the core classes that implement the WPILib WebSocket protocol, and the code can be found at its [repository](https://github.com/bb-frc-workshops/node-wpilib-ws).
+This application depends on the `wpilib-ws-robot` package (as mentioned above), which in turn depends on `node-wpilib-ws`. The `node-wpilib-ws` package contains the core classes that implement the WPILib WebSocket protocol, and the code can be found at its [repository](https://github.com/wpilibsuite/node-wpilib-ws).
 
 See the READMEs in each of the dependent packages to find out more about how to use them outside of this application.
