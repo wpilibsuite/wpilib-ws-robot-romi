@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import WPILibWSRomiRobot, { IOPinMode, IPinConfiguration, DEFAULT_IO_CONFIGURATION, NUM_CONFIGURABLE_PINS } from "./romi-robot";
-import { WPILibWSRobotEndpoint, WPILibWSServerConfig, WPILibWSClientConfig } from "wpilib-ws-robot";
+import { WPILibWSRobotEndpoint, WPILibWSServerConfig, WPILibWSClientConfig } from "@wpilib/wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 import program from "commander";

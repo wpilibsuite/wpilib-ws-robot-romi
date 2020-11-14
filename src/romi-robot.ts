@@ -1,4 +1,4 @@
-import { WPILibWSRobotBase, DigitalChannelMode } from "wpilib-ws-robot";
+import { WPILibWSRobotBase, DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 import PromiseQueue from "promise-queue";
 
@@ -50,6 +50,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
 
+    private _firmwareIdent: number = -1;
+
     private _batteryPct: number = 0;
 
     private _i2cQueue: PromiseQueue = new PromiseQueue(1);
@@ -66,6 +68,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _extPwmPins: number[] = []; // Idx maps to PWM channel of (2 + idx). Value is the IO pin index
 
     private _extPinConfiguration: number[] = [];
+
+    private _readyP: Promise<void>;
 
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
@@ -87,56 +91,70 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             }
         }
 
-        this._configureIO();
-
-        // Initial set up of digital inputs (we set DIO 0 to input because it's a button)
-        this._digitalInputValues.set(0, false);
-
-        // Set up encoders
-        this._encoderInputValues.set(0, {
-            reportedValue: 0,
-            lastRobotValue: 0
-        });
-
-        this._encoderInputValues.set(1, {
-            reportedValue: 0,
-            lastRobotValue: 0
-        });
-
-        // Set up the heartbeat
-        this._heartbeatTimer = setInterval(() => {
-            this._writeByte(RomiDataBuffer.heartbeat.offset, 1);
-        }, 100);
-
-        // Set up the read timer
-        this._readTimer = setInterval(() => {
-            this._bulkAnalogRead();
-            this._bulkDigitalRead();
-            this._bulkEncoderRead();
-
-            this._readBattery();
-        }, 50);
-
-        // Set up the status check
-        setInterval(() => {
-            this._readByte(RomiDataBuffer.status.offset)
-            .then(val => {
-                if (val === 0) {
-                    console.log("Status byte is 0. Assuming brown out. Rewriting IO config");
-                    // If the status byte is 0, we might have browned out the romi
-                    // So we write the IO configuration again
-                    this._writeIOConfiguration();
-                }
+        // Set up the ready indicator
+        this._readyP =
+            this._configureIO()
+            .then(() => {
+                // Read firmware
+                return this._readByte(RomiDataBuffer.firmwareIdent.offset)
+                .then(fwIdent => {
+                    this._firmwareIdent = fwIdent;
+                });
             })
-        }, 500);
+            .then(() => {
+                // Initial set up of digital inputs (we set DIO 0 to input because it's a button)
+                this._digitalInputValues.set(0, false);
+
+                // Set up encoders
+                this._encoderInputValues.set(0, {
+                    reportedValue: 0,
+                    lastRobotValue: 0
+                });
+
+                this._encoderInputValues.set(1, {
+                    reportedValue: 0,
+                    lastRobotValue: 0
+                });
+
+                // Set up the heartbeat
+                this._heartbeatTimer = setInterval(() => {
+                    this._writeByte(RomiDataBuffer.heartbeat.offset, 1);
+                }, 100);
+
+                // Set up the read timer
+                this._readTimer = setInterval(() => {
+                    this._bulkAnalogRead();
+                    this._bulkDigitalRead();
+                    this._bulkEncoderRead();
+
+                    this._readBattery();
+                }, 50);
+
+                // Set up the status check
+                setInterval(() => {
+                    this._readByte(RomiDataBuffer.status.offset)
+                    .then(val => {
+                        if (val === 0) {
+                            console.log("Status byte is 0. Assuming brown out. Rewriting IO config");
+                            // If the status byte is 0, we might have browned out the romi
+                            // So we write the IO configuration again
+                            this._writeIOConfiguration();
+                        }
+                    })
+                }, 500);
+            });
     }
 
     public readyP(): Promise<void> {
-        return Promise.resolve();
+        return this._readyP;
     }
 
     public get descriptor(): string {
         return "WPILibWS Reference Robot (Romi)";
+    }
+
+    public get firmwareIdent(): number {
+        return this._firmwareIdent;
     }
 
     public getBatteryPercentage(): number {
@@ -350,7 +368,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     /**
      * Configure the IO pins on the romi
      */
-    private _configureIO() {
+    private async _configureIO(): Promise<void> {
         // Loop through the configuration array and write the pin config messages
         // Wipe out the IO maps
         this._extAnalogInPins = [];
@@ -378,13 +396,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             }
         });
 
-        this._writeIOConfiguration();
+        return this._writeIOConfiguration();
     }
 
     /**
      * Do the actual configuration write to the romi
      */
-    private _writeIOConfiguration() {
+    private async _writeIOConfiguration(): Promise<void> {
         let configRegister: number = (1 << 15);
 
         this._extPinConfiguration.forEach((pinMode, ioIdx) => {
@@ -392,7 +410,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             configRegister |= pinModeConfig;
         });
 
-        this._writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3);
+        return this._writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3);
     }
 
     private _bulkAnalogRead() {
