@@ -6,6 +6,7 @@
   "typings": "dist/index.d.ts",
   "scripts": {
     "build": "tsc && pio run -d firmware",
+    "build-js": "tsc",
     "gen-shmem": "node generate-buffer.js",
     "start": "npm run build && node dist/index.js",
     "prepublishOnly": "npm run build"
