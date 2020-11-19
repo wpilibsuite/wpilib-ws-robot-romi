@@ -1,7 +1,7 @@
 import MockI2C from "../i2c/mock-i2c";
 import I2CPromisifiedBus from "../i2c/i2c-connection";
 import WPILibWSRomiRobot, { IOPinMode, IPinConfiguration } from "../romi-robot";
-import { DigitalChannelMode } from "wpilib-ws-robot";
+import { DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
 
 let hardwareConfig: IPinConfiguration[] = [
     { pinNumber: 11, mode: IOPinMode.DIO },

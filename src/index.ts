@@ -6,11 +6,15 @@ import I2CPromisifiedBus from "./i2c/i2c-connection";
 import program from "commander";
 import jsonfile from "jsonfile";
 
+interface RomiConfiguration {
+    ioConfig: string[]
+};
+
 // Set up command line options
 program
     .version("0.0.1")
     .name("wpilibws-romi")
-    .option("-c, --hardware-config <file>", "hardware configuration file")
+    .option("-c, --config <file>", "configuration file")
     .option("-e, --endpoint-type <type>", "endpoint type (client/server)", "server")
     .option("-m, --mock-i2c", "Force the use of Mock I2C")
     .option("-p, --port <port>", "port to listen/connect to")
@@ -36,33 +40,36 @@ const endpointType = program.endpointType;
 // If we are provided a config file, try reading it. If this is undefined, the robot controller constructor will use
 // its built in default mapping instead
 let hardwareConfig: IPinConfiguration[] | undefined = undefined;
+const ioPinModes: string[] = DEFAULT_IO_CONFIGURATION.map(val => (val.mode as string));
 
-if (program.hardwareConfig !== undefined) {
+if (program.config !== undefined) {
     try {
-        const portConfigsRaw: any = jsonfile.readFileSync(program.hardwareConfig);
+        const romiConfig: RomiConfiguration = jsonfile.readFileSync(program.config);
 
-        // check if the raw object we get back is an array
-        if (portConfigsRaw instanceof Array) {
-            const portConfigs: string[] = (portConfigsRaw as string[]);
+        if (romiConfig && romiConfig.ioConfig && (romiConfig.ioConfig instanceof Array)) {
+            const portConfigs: string[] = romiConfig.ioConfig;
             if (portConfigs.length !== NUM_CONFIGURABLE_PINS) {
-                console.error("Invalid number of port configurations");
+                console.error("[CONFIG] Invalid number of IO port configurations.");
                 process.exit(1);
             }
 
-            // Fill the default config
+            // Copy over the default values
             hardwareConfig = [];
             DEFAULT_IO_CONFIGURATION.forEach(val => hardwareConfig.push(Object.assign({}, val)));
 
             for (let i = 0; i < NUM_CONFIGURABLE_PINS; i++) {
                 let pinMode: IOPinMode;
-                switch (portConfigs[i].toLowerCase()) {
+                const incomingPinMode: string = portConfigs[i].toLowerCase();
+                ioPinModes[i] = incomingPinMode;
+
+                switch (incomingPinMode) {
                     case "pwm":
                         pinMode = IOPinMode.PWM;
                         break;
                     case "ain":
                         // Special case for first pin
                         if (i === 0) {
-                            console.error("Invalid pin mode for external pin 0");
+                            console.error("[CONFIG] Invalid mode for pin EXT 0");
                             process.exit(1);
                         }
                         pinMode = IOPinMode.ANALOG_IN;
@@ -71,7 +78,7 @@ if (program.hardwareConfig !== undefined) {
                         pinMode = IOPinMode.DIO;
                         break;
                     default:
-                        console.error("Invalid pin mode specified for pin " + i);
+                        console.error("[CONFIG] Invalid mode specified for pin EXT " + i);
                         process.exit(1);
                 }
 
@@ -79,12 +86,14 @@ if (program.hardwareConfig !== undefined) {
             }
         }
         else {
-            console.error("Config file should be defined as array of strings");
+            // Fallback to defaults
+            console.log("[CONFIG] Invalid or malformed configuration file.");
             process.exit(1);
         }
     }
     catch (err) {
-        console.error("Error parsing config file: ", err);
+        console.error("[CONFIG] Error parsing config file: ", err);
+        process.exit(1);
     }
 }
 
@@ -95,7 +104,7 @@ let endpointUri: string = "/wpilibws";
 if (program.port !== undefined) {
     endpointPort = parseInt(program.port, 10);
     if (isNaN(endpointPort)) {
-        console.log("Invalid port number. Must be an integer");
+        console.log("[CONFIG] Invalid port number. Must be an integer");
         program.help();
     }
 }
@@ -120,15 +129,17 @@ if (!program.mockI2c) {
         i2cBus = new HardwareI2C(I2C_BUS_NUM);
     }
     catch (err) {
-        console.log("Error creating hardware I2C: ", err.message);
-        console.log("Falling back to MockI2C");
+        console.log("[I2C] Error creating hardware I2C: ", err.message);
+        console.log("[I2C] Falling back to MockI2C");
         i2cBus = new MockI2C(I2C_BUS_NUM);
     }
 }
 else {
-    console.log("Requested to use mock I2C");
+    console.log("[I2C] Requested to use mock I2C");
     i2cBus = new MockI2C(I2C_BUS_NUM);
 }
+
+console.log(`[CONFIG] External Pin Configuration: ${ioPinModes}`);
 
 const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14, hardwareConfig);
 
@@ -139,7 +150,7 @@ if (endpointType === "server") {
     };
 
     endpoint = WPILibWSRobotEndpoint.createServerEndpoint(robot, serverSettings);
-    console.log(`Mode: Server, Port: ${endpointPort}, URI: ${endpointUri}`);
+    console.log(`[CONFIG] Mode: Server, Port: ${endpointPort}, URI: ${endpointUri}`);
 }
 else {
     const clientSettings: WPILibWSClientConfig = {
@@ -149,7 +160,7 @@ else {
     };
 
     endpoint = WPILibWSRobotEndpoint.createClientEndpoint(robot, clientSettings);
-    console.log(`Mode: Client, Host: ${endpointHost}, Port: ${endpointPort}, URI: ${endpointUri}`);
+    console.log(`[CONFIG] Mode: Client, Host: ${endpointHost}, Port: ${endpointPort}, URI: ${endpointUri}`);
 }
 
 endpoint.startP()
