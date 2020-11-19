@@ -1,4 +1,4 @@
-import { CommanderStatic } from "commander";
+import ProgramArguments from "./program-arguments";
 
 export enum EndpointType {
     CLIENT = "client",
@@ -12,32 +12,36 @@ export default class ServiceConfiguration {
     private _host: string = "localhost";
     private _uri: string = "/wpilibws";
 
-    constructor(program: CommanderStatic) {
-        if (program.endpointType !== "client" && program.endpointType !== "server") {
+    constructor(programArgs: ProgramArguments) {
+        if (programArgs.endpointType !== "client" && programArgs.endpointType !== "server") {
             throw new Error("[CONFIG] Supported endpoint types are 'client' or 'server'");
         }
 
-        if (program.endpointType === "client" && program.host === undefined) {
+        if (programArgs.endpointType === "client" && programArgs.host === undefined) {
             throw new Error("[CONFIG] Host must be defined if running as a WPILib WS Client");
         }
 
         // Save our endpointType
-        this._endpointType = (program.endpointType === "client") ?
+        this._endpointType = (programArgs.endpointType === "client") ?
                                 EndpointType.CLIENT : EndpointType.SERVER;
 
-        if (program.port !== undefined) {
-            this._port = parseInt(program.port, 10);
+        if (programArgs.port !== undefined) {
+            this._port = parseInt(programArgs.port, 10);
             if (isNaN(this._port)) {
                 throw new Error("[CONFIG] Invalid port number. Must be an integer");
             }
         }
 
-        if (program.host !== undefined) {
-            this._host = program.host;
+        if (programArgs.host !== undefined) {
+            this._host = programArgs.host;
         }
 
-        if (program.uri !== undefined) {
-            this._uri = program.uri;
+        if (programArgs.uri !== undefined) {
+            this._uri = programArgs.uri;
+        }
+
+        if (programArgs.mockI2c !== undefined) {
+            this._forceMockI2C = programArgs.mockI2c;
         }
     }
 

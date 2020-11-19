@@ -6,6 +6,7 @@ import I2CPromisifiedBus from "./i2c/i2c-connection";
 import program from "commander";
 import ServiceConfiguration, { EndpointType } from "./service-config";
 import RomiConfiguration from "./romi-config";
+import ProgramArguments from "./program-arguments";
 
 // Set up command line options
 program
@@ -25,8 +26,8 @@ let serviceConfig: ServiceConfiguration;
 let romiConfig: RomiConfiguration;
 
 try {
-    serviceConfig = new ServiceConfiguration(program);
-    romiConfig = new RomiConfiguration(program);
+    serviceConfig = new ServiceConfiguration(program as ProgramArguments);
+    romiConfig = new RomiConfiguration(program as ProgramArguments);
 }
 catch (err) {
     console.log(err.message);
@@ -39,7 +40,7 @@ const I2C_BUS_NUM: number = 1;
 let i2cBus: I2CPromisifiedBus;
 let endpoint: WPILibWSRobotEndpoint;
 
-if (!program.mockI2c) {
+if (!serviceConfig.forceMockI2C) {
     try {
         const HardwareI2C = require("./i2c/hw-i2c").default;
         i2cBus = new HardwareI2C(I2C_BUS_NUM);

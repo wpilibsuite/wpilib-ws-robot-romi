@@ -1,6 +1,6 @@
-import { CommanderStatic } from "commander";
 import { DEFAULT_IO_CONFIGURATION, IOPinMode, IPinConfiguration, NUM_CONFIGURABLE_PINS } from "./romi-robot";
 import jsonfile from "jsonfile";
+import ProgramArguments from "./program-arguments";
 
 export interface RomiConfigJson {
     ioConfig: string[]
@@ -9,15 +9,15 @@ export interface RomiConfigJson {
 export default class RomiConfiguration {
     private _extIOConfig: IPinConfiguration[] = [];
 
-    constructor(program: CommanderStatic) {
+    constructor(programArgs: ProgramArguments) {
         // Pre-load the external IO configuration
         DEFAULT_IO_CONFIGURATION.forEach(val => this._extIOConfig.push(Object.assign({}, val)));
 
         let isConfigError: boolean = false;
 
-        if (program.config !== undefined) {
+        if (programArgs.config !== undefined) {
             try {
-                const romiConfig: RomiConfigJson = jsonfile.readFileSync(program.config);
+                const romiConfig: RomiConfigJson = jsonfile.readFileSync(programArgs.config);
 
                 if (romiConfig && romiConfig.ioConfig && (romiConfig.ioConfig instanceof Array)) {
                     const portConfigs: string[] = romiConfig.ioConfig;
