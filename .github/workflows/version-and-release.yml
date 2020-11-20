@@ -1,0 +1,49 @@
+name: Version and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      newversion:
+        description: 'Semantic Version Bump Type (major minor patch)'
+        required: true
+
+jobs:
+  version_and_release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        # fetch full history so things like auto-changelog work properly
+        fetch-depth: 0
+    - name: Use Node.js 14
+      uses: actions/setup-node@v1
+      with:
+        node-version: "14.x"
+        # setting a registry enables the NODE_AUTH_TOKEN env variable where we can set an npm token.  REQUIRED
+        registry-url: 'https://registry.npmjs.org'
+    - run: npm i
+    - run: npm run build --if-present
+    - name: Version and Publish to npm
+      uses: wpilibsuite/npm-bump@v2.0.2
+      with:
+        git_email: noreply@wpilib.org
+        git_username: ${{ github.actor }}
+        newversion: ${{ github.event.inputs.newversion }}
+        push_version_commit: true # if your prePublishOnly step pushes git commits, you can omit this input or set it to false.
+        github_token: ${{ secrets.GITHUB_TOKEN }} # built in actions token.  Passed tp gh-release if in use.
+        npm_token: ${{ secrets.NPM_TOKEN }} # user set secret token generated at npm
+    - name: Get New Package Version
+      id: get-package-version
+      uses: martinbeentjes/npm-get-version-action@master
+    - name: Generate GitHub Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.get-package-version.outputs.current-version }}
+        release_name: Release v${{ steps.get-package-version.outputs.current-version }}
+        body: |
+          Update release text here
+        draft: true
+        prerelease: false
