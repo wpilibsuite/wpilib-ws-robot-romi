@@ -8,6 +8,7 @@ import ServiceConfiguration, { EndpointType } from "./service-config";
 import RomiConfiguration from "./romi-config";
 import ProgramArguments from "./program-arguments";
 import MockRomiI2C from "./mocks/mock-romi";
+import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 
 // Set up command line options
 program
@@ -52,6 +53,7 @@ if (!serviceConfig.forceMockI2C) {
         i2cBus = new MockI2C(I2C_BUS_NUM);
 
         const mockRomi: MockRomiI2C = new MockRomiI2C(0x14);
+        mockRomi.setFirmwareIdent(FIRMWARE_IDENT);
         (i2cBus as MockI2C).addDeviceToBus(mockRomi);
     }
 }
@@ -59,6 +61,7 @@ else {
     console.log("[I2C] Requested to use mock I2C");
     i2cBus = new MockI2C(I2C_BUS_NUM);
     const mockRomi: MockRomiI2C = new MockRomiI2C(0x14);
+    mockRomi.setFirmwareIdent(FIRMWARE_IDENT);
     (i2cBus as MockI2C).addDeviceToBus(mockRomi);
 }
 

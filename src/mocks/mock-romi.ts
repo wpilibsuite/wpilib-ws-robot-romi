@@ -24,6 +24,8 @@ export default class MockRomiI2C extends MockI2CDevice {
      */
     private _actualBuffer: number[];
 
+    private _isError: boolean = false;
+
     constructor(address: number) {
         super(address);
 
@@ -31,6 +33,10 @@ export default class MockRomiI2C extends MockI2CDevice {
     }
 
     public readByte(cmd: number): Promise<number> {
+        if (this._isError) {
+            return Promise.reject("IO Error");
+        }
+
         if (cmd < this._actualBuffer.length) {
             return Promise.resolve(this._actualBuffer[cmd]);
         }
@@ -39,6 +45,10 @@ export default class MockRomiI2C extends MockI2CDevice {
     }
 
     public readWord(cmd: number): Promise<number> {
+        if (this._isError) {
+            return Promise.reject("IO Error");
+        }
+
         if (cmd < this._actualBuffer.length - 1) {
             const value = Buffer.from(this._actualBuffer.slice(cmd, cmd + 2));
             return Promise.resolve(value.readUInt16LE(0));
@@ -48,6 +58,10 @@ export default class MockRomiI2C extends MockI2CDevice {
     }
 
     public writeByte(cmd: number, byte: number): Promise<void> {
+        if (this._isError) {
+            return Promise.reject("IO Error");
+        }
+
         if (cmd < this._incomingBuffer.length) {
             this._incomingBuffer[cmd] = byte;
 
@@ -60,6 +74,10 @@ export default class MockRomiI2C extends MockI2CDevice {
     }
 
     public writeWord(cmd: number, word: number): Promise<void> {
+        if (this._isError) {
+            return Promise.reject("IO Error");
+        }
+
         if (cmd < this._incomingBuffer.length) {
             // Read in as an unsigned 16 bit LE number
             const temp = Buffer.alloc(2);
@@ -100,5 +118,9 @@ export default class MockRomiI2C extends MockI2CDevice {
 
         this._incomingBuffer = new Array(bufferSize);
         this._actualBuffer = new Array(bufferSize);
+    }
+
+    public setI2CBusError(isError: boolean) {
+        this._isError = isError;
     }
 }
