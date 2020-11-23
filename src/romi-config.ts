@@ -9,13 +9,13 @@ export interface RomiConfigJson {
 export default class RomiConfiguration {
     private _extIOConfig: IPinConfiguration[] = [];
 
-    constructor(programArgs: ProgramArguments) {
+    constructor(programArgs?: ProgramArguments) {
         // Pre-load the external IO configuration
         DEFAULT_IO_CONFIGURATION.forEach(val => this._extIOConfig.push(Object.assign({}, val)));
 
         let isConfigError: boolean = false;
 
-        if (programArgs.config !== undefined) {
+        if (programArgs && programArgs.config !== undefined) {
             try {
                 const romiConfig: RomiConfigJson = jsonfile.readFileSync(programArgs.config);
 

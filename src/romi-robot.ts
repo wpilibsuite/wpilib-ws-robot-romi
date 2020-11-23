@@ -101,13 +101,16 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 return this._readByte(RomiDataBuffer.firmwareIdent.offset)
                 .then(fwIdent => {
                     this._firmwareIdent = fwIdent;
-                    if (this._firmwareIdent !== FIRMWARE_IDENT) {
-                        console.log("[FIRMWARE] Firmware Identifier Mismatch!");
-                    }
                 })
                 .catch(err => {
                     this._i2cErrorDetector.addErrorInstance();
                 });
+            })
+            .then(() => {
+                // Verify firmware
+                if (this._firmwareIdent !== FIRMWARE_IDENT) {
+                    console.log(`[FIRMWARE] Firmware Identifier Mismatch. Expected ${FIRMWARE_IDENT} but got ${this._firmwareIdent}`);
+                }
             })
             .then(() => {
                 // Initial set up of digital inputs (we set DIO 0 to input because it's a button)
