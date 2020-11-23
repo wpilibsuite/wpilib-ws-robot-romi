@@ -29,11 +29,20 @@ let romiConfig: RomiConfiguration;
 
 try {
     serviceConfig = new ServiceConfiguration(program as ProgramArguments);
-    romiConfig = new RomiConfiguration(program as ProgramArguments);
 }
 catch (err) {
     console.log(err.message);
     process.exit();
+}
+
+try {
+    romiConfig = new RomiConfiguration(program as ProgramArguments);
+}
+catch (err) {
+    romiConfig = new RomiConfiguration();
+    console.log("[CONFIG] Error loading romi configuration")
+    console.log(err.message);
+    console.log("[CONFIG] Falling back to defaults");
 }
 
 const I2C_BUS_NUM: number = 1;
