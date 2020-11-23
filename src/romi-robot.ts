@@ -71,7 +71,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _extPinConfiguration: number[] = [];
 
     private _readyP: Promise<void>;
-    private _i2cErrorDetector: I2CErrorDetector = new I2CErrorDetector(10, 500);
+    private _i2cErrorDetector: I2CErrorDetector = new I2CErrorDetector(10, 500, 100);
 
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
