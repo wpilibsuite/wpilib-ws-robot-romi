@@ -60,7 +60,12 @@ let tsOutput = fileHeading +
 "    UINT16_T,\n" +
 "    INT16_T,\n" +
 "}\n\n" +
-"export default {\n";
+"export interface ShmemElementDefinition {\n" +
+"    offset: number;\n" +
+"    type: ShmemDataType;\n" +
+"    arraySize?: number;\n" +
+"}\n\n" +
+"const shmemBuffer: {[key: string]: ShmemElementDefinition} = {\n";
 
 function getBufDataTypeFromType(type) {
     if (type === "bool") {
@@ -95,7 +100,8 @@ SharedMemLayout.forEach(field => {
     currOffset += dataSize;
 })
 
-tsOutput += "};\n";
+tsOutput += "};\n\n";
+tsOutput += "export default Object.freeze(shmemBuffer);\n"
 
 // Write the files
 fs.writeFileSync("./firmware/include/shmem_buffer.h", cppOutput);

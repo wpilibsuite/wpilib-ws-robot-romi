@@ -2,7 +2,8 @@ import { WPILibWSRobotBase, DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
 import I2CPromisifiedBus from "./i2c/i2c-connection";
 import PromiseQueue from "promise-queue";
 
-import RomiDataBuffer from "./romi-shmem-buffer";
+import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
+import I2CErrorDetector from "./i2c-error-detector";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -70,6 +71,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _extPinConfiguration: number[] = [];
 
     private _readyP: Promise<void>;
+    private _i2cErrorDetector: I2CErrorDetector = new I2CErrorDetector(10, 500, 100);
 
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
@@ -99,6 +101,12 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 return this._readByte(RomiDataBuffer.firmwareIdent.offset)
                 .then(fwIdent => {
                     this._firmwareIdent = fwIdent;
+                    if (this._firmwareIdent !== FIRMWARE_IDENT) {
+                        console.log("[FIRMWARE] Firmware Identifier Mismatch!");
+                    }
+                })
+                .catch(err => {
+                    this._i2cErrorDetector.addErrorInstance();
                 });
             })
             .then(() => {
@@ -118,7 +126,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
                 // Set up the heartbeat
                 this._heartbeatTimer = setInterval(() => {
-                    this._writeByte(RomiDataBuffer.heartbeat.offset, 1);
+                    this._writeByte(RomiDataBuffer.heartbeat.offset, 1)
+                    .catch(err => {
+                        this._i2cErrorDetector.addErrorInstance();
+                    });
                 }, 100);
 
                 // Set up the read timer
@@ -141,6 +152,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                             this._writeIOConfiguration();
                         }
                     })
+                    .catch(err => {
+                        this._i2cErrorDetector.addErrorInstance();
+                    });
                 }, 500);
             });
     }
@@ -180,7 +194,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             builtinModeConfig |= ((channel << 2) & 0xC);
             builtinModeConfig |= (channelMode & 0x3);
 
-            this._writeByte(RomiDataBuffer.builtinConfig.offset, builtinModeConfig);
+            this._writeByte(RomiDataBuffer.builtinConfig.offset, builtinModeConfig)
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            });
         }
 
 
@@ -212,14 +229,20 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     public setDIOValue(channel: number, value: boolean): void {
         if (channel < 4) {
             // Use the built in DIO
-            this._writeByte(RomiDataBuffer.builtinDioValues.offset + channel, value ? 1 : 0);
+            this._writeByte(RomiDataBuffer.builtinDioValues.offset + channel, value ? 1 : 0)
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            });
         }
 
         if (channel >= 8) {
             const extDioIdx = channel - 8;
             if (this._extDioPins[extDioIdx] !== undefined) {
                 const ioIdx = this._extDioPins[extDioIdx];
-                this._writeByte(RomiDataBuffer.extIoValues.offset + (ioIdx * 2), value ? 1 : 0);
+                this._writeByte(RomiDataBuffer.extIoValues.offset + (ioIdx * 2), value ? 1 : 0)
+                .catch(err => {
+                    this._i2cErrorDetector.addErrorInstance();
+                });
             }
         }
     }
@@ -273,7 +296,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 const ioIdx = this._extPwmPins[pwmIoIdx];
                 offset = RomiDataBuffer.extIoValues.offset + (ioIdx * 2);
             }
-            this._writeWord(offset, tmp.readUInt16BE());
+            this._writeWord(offset, tmp.readUInt16BE())
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            });
         }
     }
 
@@ -302,7 +328,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             encoderInfo.reportedValue = 0;
         }
 
-        this._writeByte(offset, 1);
+        this._writeByte(offset, 1)
+        .catch(err => {
+            this._i2cErrorDetector.addErrorInstance();
+        });
     }
 
     public setEncoderReverseDirection(channel: number, reverse: boolean): void {
@@ -410,7 +439,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             configRegister |= pinModeConfig;
         });
 
-        return this._writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3);
+        return this._writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3)
+        .catch(err => {
+            this._i2cErrorDetector.addErrorInstance();
+        });
     }
 
     private _bulkAnalogRead() {
@@ -421,6 +453,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             .then(voltage => {
                 // TODO verify that this is available?
                 this._analogInputValues.set(ainIdx, voltage);
+            })
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
             });
         });
 
@@ -450,6 +485,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             this._readByte(offset)
             .then(value => {
                 this._digitalInputValues.set(channel, value !== 0);
+            })
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
             });
         });
     }
@@ -484,7 +522,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this.resetEncoder(channel, true);
                     encoderInfo.lastRobotValue = 0;
                 }
-            });
+            })
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            })
         });
     }
 
@@ -492,6 +533,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._readWord(RomiDataBuffer.batteryMillivolts.offset)
         .then(battMv => {
             this._batteryPct = battMv / 9000;
-        });
+        })
+        .catch(err => {
+            this._i2cErrorDetector.addErrorInstance();
+        })
     }
 }
