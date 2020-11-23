@@ -27,7 +27,7 @@ export default class I2CErrorDetector {
         // Run through the list from back to front to see if we have a timestamp
         const currTimestamp = Date.now();
         if (this._errorQueue.length === 0 || (this._errorQueue[this._errorQueue.length - 1].timestamp < currTimestamp)) {
-            // No entries in the queue, or our timestamp is larger than the last element in queue
+            // If queue is empty or our timestamp is larger than the last element in queue
             this._errorQueue.push({
                 timestamp: currTimestamp,
                 count: 1
@@ -57,7 +57,7 @@ export default class I2CErrorDetector {
             if (currTimestamp - this._errorQueue[this._errorQueue.length - 1].timestamp > this._windowMs) {
                 this._errorQueue.length = 0; // Clear the queue
                 if (this._isErrorState) {
-                    console.log("[I2C] Clearing Error State");
+                    console.log(`[I2C] Clearing Error State - Latest error reported lies outside of window(${this._windowMs}ms)`);
                 }
                 this._isErrorState = false;
             }
@@ -79,7 +79,7 @@ export default class I2CErrorDetector {
                 }
                 else {
                     if (this._isErrorState) {
-                        console.log("[I2C] Clearing Error State");
+                        console.log(`[I2C] Clearing Error State - Num Errors(${errorCount}) in window (${this._windowMs}ms) is below threshold (${this._errorThreshold}))`);
                     }
                     this._isErrorState = false;
                 }
@@ -87,7 +87,7 @@ export default class I2CErrorDetector {
         }
         else {
             if (this._isErrorState) {
-                console.log("[I2C] Clearing Error State");
+                console.log("[I2C] Clearing Error State - No recently reported errors");
             }
             this._isErrorState = false;
         }
