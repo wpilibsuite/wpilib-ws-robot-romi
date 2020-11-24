@@ -9,6 +9,7 @@ import RomiConfiguration from "./romi-config";
 import ProgramArguments from "./program-arguments";
 import MockRomiI2C from "./mocks/mock-romi";
 import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
+import RestInterface from "./rest-interface/rest-interface";
 
 // Set up command line options
 program
@@ -98,7 +99,29 @@ else {
     console.log(`[CONFIG] Mode: Client, Host: ${serviceConfig.host}, Port: ${serviceConfig.port}, URI: ${serviceConfig.uri}`);
 }
 
+// Set up the REST interface
+const restInterface: RestInterface = new RestInterface();
+restInterface.addStatusQuery("firmware-status", () => {
+    return {
+        firmwareMatch: robot.firmwareIdent === FIRMWARE_IDENT
+    };
+});
+
+restInterface.addStatusQuery("external-io-config", () => {
+    return romiConfig.externalIOConfig.map(val => {
+        return val.mode;
+    });
+});
+
 endpoint.startP()
 .then(() => {
     console.log(`[SERVICE] Endpoint (${serviceConfig.endpointType}) Started`);
-});
+})
+.then(() => {
+    console.log("[REST-INTERFACE] Endpoints:");
+    restInterface.getAccessorList().forEach(accessor => {
+        console.log(`[REST-INTERFACE] ${accessor}`);
+    });
+
+    restInterface.start();
+})
