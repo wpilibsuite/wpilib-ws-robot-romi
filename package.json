@@ -47,5 +47,8 @@
   "files": [
     "dist/**/*",
     "firmware/.pio/build/a-star32U4/firmware.hex"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }
