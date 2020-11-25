@@ -4,6 +4,7 @@ import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import I2CErrorDetector from "./i2c-error-detector";
+import LSM6 from "./lsm6";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -73,15 +74,18 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _readyP: Promise<void>;
     private _i2cErrorDetector: I2CErrorDetector = new I2CErrorDetector(10, 500, 100);
 
+    private _lsm6: LSM6;
+
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
     constructor(bus: I2CPromisifiedBus, address: number, ioConfig?: IPinConfiguration[]) {
         super();
 
-        // TODO We should wrap HW initialization in a promise
-        // that readyP() can return
         this._i2cBus = bus;
         this._i2cAddress = address;
+
+        // Set up the LSM6DS33
+        this._lsm6 = new LSM6(this._i2cBus, 0x6B);
 
         // Set up the overlay configuration
         if (ioConfig) {
@@ -89,7 +93,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 this._ioConfiguration = ioConfig;
             }
             else {
-                console.log("Error verifying pin configuration. Reverting to default");
+                console.log("[ROMI] Error verifying pin configuration. Reverting to default");
             }
         }
 
@@ -109,8 +113,20 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             .then(() => {
                 // Verify firmware
                 if (this._firmwareIdent !== FIRMWARE_IDENT) {
-                    console.log(`[FIRMWARE] Firmware Identifier Mismatch. Expected ${FIRMWARE_IDENT} but got ${this._firmwareIdent}`);
+                    console.log(`[ROMI] Firmware Identifier Mismatch. Expected ${FIRMWARE_IDENT} but got ${this._firmwareIdent}`);
                 }
+            })
+            .then(() => {
+                // Initialize LSM6
+                return this._lsm6.init()
+                .then(() => {
+                    // Enable the LSM6 at default values to start
+                    // These can be reconfigured later
+                    return this._lsm6.enableDefault();
+                })
+                .then(() => {
+                    console.log("[ROMI] LSM6DS33 Initialized");
+                });
             })
             .then(() => {
                 // Initial set up of digital inputs (we set DIO 0 to input because it's a button)
@@ -142,6 +158,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._bulkEncoderRead();
 
                     this._readBattery();
+
+                    // Read IMU
+                    this._lsm6.readAccelerometer();
+                    this._lsm6.readGyro();
                 }, 50);
 
                 // Set up the status check
@@ -149,7 +169,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._readByte(RomiDataBuffer.status.offset)
                     .then(val => {
                         if (val === 0) {
-                            console.log("Status byte is 0. Assuming brown out. Rewriting IO config");
+                            console.log("[ROMI] Status byte is 0. Assuming brown out. Rewriting IO config");
                             // If the status byte is 0, we might have browned out the romi
                             // So we write the IO configuration again
                             this._writeIOConfiguration();
@@ -343,13 +363,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     protected async _readByte(cmd: number): Promise<number> {
         return this._i2cQueue.add(() => {
-            return this._i2cBus.readByte(this._i2cAddress, cmd);
+            return this._i2cBus.readByte(this._i2cAddress, cmd, true);
         });
     }
 
     protected async _readWord(cmd: number): Promise<number> {
         return this._i2cQueue.add(() => {
-            return this._i2cBus.readWord(this._i2cAddress, cmd);
+            return this._i2cBus.readWord(this._i2cAddress, cmd, true);
         });
     }
 
@@ -381,7 +401,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _verifyConfiguration(config: IPinConfiguration[]): boolean {
         if (config.length !== IO_CAPABILITIES.length) {
-            console.log(`Incorrect number of pin config options. Expected ${IO_CAPABILITIES.length} but got ${config.length}`);
+            console.log(`[ROMI] Incorrect number of pin config options. Expected ${IO_CAPABILITIES.length} but got ${config.length}`);
             return false;
         }
 
@@ -389,7 +409,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             // For each element, make sure that we are setting a mode that is supported
             const configOption = config[i];
             if (IO_CAPABILITIES[i].supportedModes.indexOf(configOption.mode) === -1) {
-                console.log(`Invalid mode set for pin ${i}. Supported modes are ${JSON.stringify(IO_CAPABILITIES[i].supportedModes)}`);
+                console.log(`[ROMI] Invalid mode set for pin ${i}. Supported modes are ${JSON.stringify(IO_CAPABILITIES[i].supportedModes)}`);
                 return false;
             }
         }
