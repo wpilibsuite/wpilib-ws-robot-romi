@@ -29,7 +29,7 @@ export default class MockI2C extends I2CPromisifiedBus {
         return Promise.resolve();
     }
 
-    public readByte(addr: number, cmd: number): Promise<number> {
+    public readByte(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
         if (this._shouldLog) {
             console.log(`readByte(${addr}, ${cmd})`);
         }
@@ -53,7 +53,7 @@ export default class MockI2C extends I2CPromisifiedBus {
         return Promise.reject(`[MOCK-I2C] IO Error - No device with address ${addr}`);
     }
 
-    public readWord(addr: number, cmd: number): Promise<number> {
+    public readWord(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
         if (this._shouldLog) {
             console.log(`readWord(${addr}, ${cmd})`);
         }
