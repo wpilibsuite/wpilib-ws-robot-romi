@@ -9,6 +9,8 @@ import LSM6 from "./lsm6";
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
     lastRobotValue: number; // The last robot-reported value
+    isHardwareReversed?: boolean;
+    isSoftwareReversed?: boolean;
 }
 
 export enum IOPinMode {
@@ -63,6 +65,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _digitalInputValues: Map<number, boolean> = new Map<number, boolean>();
     private _analogInputValues: Map<number, number> = new Map<number, number>();
     private _encoderInputValues: Map<number, IEncoderInfo> = new Map<number, IEncoderInfo>();
+
+    // These store the HAL-registered encoder channels. -1 implies uninitialized
+    private _leftEncoderChannel: number = -1;
+    private _rightEncoderChannel: number = -1;
 
     private _ioConfiguration: IPinConfiguration[] = DEFAULT_IO_CONFIGURATION;
     private _extDioPins: number[] = []; // Index maps to a DIO channel of (8 + idx). Value is the IO pin index
@@ -131,17 +137,6 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             .then(() => {
                 // Initial set up of digital inputs (we set DIO 0 to input because it's a button)
                 this._digitalInputValues.set(0, false);
-
-                // Set up encoders
-                this._encoderInputValues.set(0, {
-                    reportedValue: 0,
-                    lastRobotValue: 0
-                });
-
-                this._encoderInputValues.set(1, {
-                    reportedValue: 0,
-                    lastRobotValue: 0
-                });
 
                 // Set up the heartbeat
                 this._heartbeatTimer = setInterval(() => {
@@ -326,6 +321,45 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         }
     }
 
+    public registerEncoder(encoderChannel: number, channelA: number, channelB: number) {
+        // Left encoder uses dio 4/5, right uses 6/7
+        // If the channels are reversed, we'll set the hardware reversed flag
+        if (channelA === 4 && channelB === 5) {
+            this._encoderInputValues.set(encoderChannel, {
+                reportedValue: 0,
+                lastRobotValue: 0,
+                isHardwareReversed: false
+            });
+            this._leftEncoderChannel = encoderChannel;
+        }
+        else if (channelA === 5 && channelB === 4) {
+            this._encoderInputValues.set(encoderChannel, {
+                reportedValue: 0,
+                lastRobotValue: 0,
+                isHardwareReversed: true
+            });
+            this._leftEncoderChannel = encoderChannel;
+        }
+        else if (channelA === 6 && channelB === 7) {
+            this._encoderInputValues.set(encoderChannel, {
+                reportedValue: 0,
+                lastRobotValue: 0,
+                isHardwareReversed: false
+            });
+            this._rightEncoderChannel = encoderChannel;
+        }
+        else if (channelA === 7 && channelB === 6) {
+            this._encoderInputValues.set(encoderChannel, {
+                reportedValue: 0,
+                lastRobotValue: 0,
+                isHardwareReversed: false
+            });
+            this._rightEncoderChannel = encoderChannel;
+        }
+
+        // If we have the wrong combination of pins, we ignore the encoder
+    }
+
     public getEncoderCount(channel: number): number {
         if (!this._encoderInputValues.has(channel)) {
             return 0;
@@ -335,13 +369,15 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public resetEncoder(channel: number, keepLast?: boolean): void {
-        if (channel !== 0 && channel !== 1) {
-            return;
+        let offset;
+        if (channel === this._leftEncoderChannel) {
+            offset = RomiDataBuffer.resetLeftEncoder.offset;
         }
-
-        let offset = RomiDataBuffer.resetLeftEncoder.offset;
-        if (channel === 1) {
+        else if (channel === this._rightEncoderChannel) {
             offset = RomiDataBuffer.resetRightEncoder.offset;
+        }
+        else {
+            return;
         }
 
         const encoderInfo = this._encoderInputValues.get(channel);
@@ -358,7 +394,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public setEncoderReverseDirection(channel: number, reverse: boolean): void {
-        // TODO Implement
+        const encoderInfo = this._encoderInputValues.get(channel);
+        if (encoderInfo) {
+            encoderInfo.isSoftwareReversed = reverse;
+        }
     }
 
     protected async _readByte(cmd: number): Promise<number> {
@@ -517,13 +556,17 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _bulkEncoderRead() {
         this._encoderInputValues.forEach((encoderInfo, channel) => {
-            if (channel !== 0 && channel !== 1) {
-                return;
+            let offset: number;
+            if (channel === this._leftEncoderChannel) {
+                offset = RomiDataBuffer.leftEncoder.offset;
             }
-
-            let offset = RomiDataBuffer.leftEncoder.offset;
-            if (channel === 1) {
+            else if (channel === this._rightEncoderChannel) {
                 offset = RomiDataBuffer.rightEncoder.offset;
+            }
+            else {
+                // Invalid encoder channel (shouldn't happen)
+                // bail out
+                return;
             }
 
             this._readWord(offset)
@@ -534,7 +577,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 encoderValue = buf.readInt16LE();
 
                 const lastValue = encoderInfo.lastRobotValue;
-                const delta = encoderValue - lastValue;
+
+                // Figure out if we should be reporting flipped values
+                const reverseMultiplier = (encoderInfo.isHardwareReversed ? -1 : 1) *
+                                          (encoderInfo.isSoftwareReversed ? -1 : 1);
+                const delta = (encoderValue - lastValue) * reverseMultiplier;
 
                 encoderInfo.reportedValue += delta;
                 encoderInfo.lastRobotValue = encoderValue;
