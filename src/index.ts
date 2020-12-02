@@ -113,6 +113,13 @@ restInterface.addStatusQuery("external-io-config", () => {
     });
 });
 
+restInterface.addStatusQuery("battery-status", () => {
+    return {
+        voltage: robot.getBatteryPercentage() * 9.0,
+        percent: robot.getBatteryPercentage()
+    };
+});
+
 endpoint.startP()
 .then(() => {
     console.log(`[SERVICE] Endpoint (${serviceConfig.endpointType}) Started`);
