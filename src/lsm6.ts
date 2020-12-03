@@ -175,7 +175,7 @@ export default class LSM6 {
         await this.setAccelerometerScale(AccelerometerScale.SCALE_2G);
 
         // Gyro
-        await this.setGyroScale(GyroScale.SCALE_250_DPS);
+        await this.setGyroScale(GyroScale.SCALE_1000_DPS);
 
         // Common
         await this._writeByte(RegAddr.CTRL3_C, IF_INC_ENABLED);
