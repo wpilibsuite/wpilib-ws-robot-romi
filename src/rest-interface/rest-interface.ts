@@ -8,12 +8,16 @@ export interface RestInterfaceConfig {
     port?: number;
 }
 
+interface AllStatusResponse {
+    [key: string]: any;
+}
+
 export default class RestInterface {
     private _app: express.Express;
     private _server: Server;
     private _port: number;
 
-    private _statusAccessors: Set<string> = new Set<string>();
+    private _statusAccessors: Map<string, () => any> = new Map<string, () => any>();
 
     constructor(config?: RestInterfaceConfig) {
         this._port = DEFAULT_PORT;
@@ -27,6 +31,17 @@ export default class RestInterface {
         const app = this._app = express();
         app.use(express.json());
         app.use(cors());
+
+        // Register the global `status` query, which provides an
+        // all-in-one data dump of status
+        this._app.get("/status", (req, res) => {
+            const data: AllStatusResponse = {};
+            this._statusAccessors.forEach((valueProducer, accessorName) => {
+                data[accessorName] = valueProducer();
+            });
+
+            res.status(200).send(data);
+        })
     }
 
     public addStatusQuery(accessorName: string, valueProducer: () => any) {
@@ -34,7 +49,7 @@ export default class RestInterface {
             return;
         }
 
-        this._statusAccessors.add(accessorName);
+        this._statusAccessors.set(accessorName, valueProducer);
         this._app.get(`/status/${accessorName}`, (req, res) => {
             res.status(200).send(valueProducer());
         });
@@ -57,8 +72,8 @@ export default class RestInterface {
     public getAccessorList(): string[] {
         const list: string[] = [];
 
-        this._statusAccessors.forEach(val => {
-            list.push(`GET /status/${val}`);
+        this._statusAccessors.forEach((valProducer, accessorName) => {
+            list.push(`GET /status/${accessorName}`);
         });
 
         return list;

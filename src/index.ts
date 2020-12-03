@@ -10,6 +10,7 @@ import ProgramArguments from "./program-arguments";
 import MockRomiI2C from "./mocks/mock-romi";
 import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import RestInterface from "./rest-interface/rest-interface";
+import MockRomiImu from "./mocks/mock-imu";
 
 // Set up command line options
 program
@@ -65,6 +66,9 @@ if (!serviceConfig.forceMockI2C) {
         const mockRomi: MockRomiI2C = new MockRomiI2C(0x14);
         mockRomi.setFirmwareIdent(FIRMWARE_IDENT);
         (i2cBus as MockI2C).addDeviceToBus(mockRomi);
+
+        const mockImu: MockRomiImu = new MockRomiImu(0x6B);
+        (i2cBus as MockI2C).addDeviceToBus(mockImu);
     }
 }
 else {
@@ -73,6 +77,9 @@ else {
     const mockRomi: MockRomiI2C = new MockRomiI2C(0x14);
     mockRomi.setFirmwareIdent(FIRMWARE_IDENT);
     (i2cBus as MockI2C).addDeviceToBus(mockRomi);
+
+    const mockImu: MockRomiImu = new MockRomiImu(0x6B);
+    (i2cBus as MockI2C).addDeviceToBus(mockImu);
 }
 
 console.log(`[CONFIG] External Pins: ${romiConfig.pinConfigurationString}`);
