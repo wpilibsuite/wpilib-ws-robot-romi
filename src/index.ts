@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from "fs";
 import WPILibWSRomiRobot from "./romi-robot";
 import { WPILibWSRobotEndpoint, WPILibWSServerConfig, WPILibWSClientConfig } from "@wpilib/wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";
@@ -12,9 +13,23 @@ import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import RestInterface from "./rest-interface/rest-interface";
 import MockRomiImu from "./mocks/mock-imu";
 
+let packageVersion: string = "0.0.0";
+
+try {
+    // Read in package.json to get version information
+    const packageJsonContents = fs.readFileSync("./package.json");
+    const packageJsonObj = JSON.parse(packageJsonContents.toString());
+    if (packageJsonObj.version !== undefined) {
+        packageVersion = packageJsonObj.version;
+    }
+}
+catch (e) {
+    console.error("Error reading package.json: ", e);
+}
+
 // Set up command line options
 program
-    .version("0.0.1")
+    .version(packageVersion)
     .name("wpilibws-romi")
     .option("-c, --config <file>", "configuration file")
     .option("-e, --endpoint-type <type>", "endpoint type (client/server)", "server")
@@ -25,6 +40,8 @@ program
     .helpOption("--help", "display help for command");
 
 program.parse(process.argv);
+
+console.log(`Version: ${packageVersion}`);
 
 let serviceConfig: ServiceConfiguration;
 let romiConfig: RomiConfiguration;
@@ -108,6 +125,12 @@ else {
 
 // Set up the REST interface
 const restInterface: RestInterface = new RestInterface();
+restInterface.addStatusQuery("service-version", () => {
+    return {
+        serviceVersion: packageVersion
+    };
+});
+
 restInterface.addStatusQuery("firmware-status", () => {
     return {
         firmwareMatch: robot.firmwareIdent === FIRMWARE_IDENT
