@@ -1,4 +1,5 @@
 import express, {Request, Response} from "express";
+import cors from "cors";
 import { Server } from "http";
 
 const DEFAULT_PORT: number = 9001;
@@ -25,6 +26,7 @@ export default class RestInterface {
 
         const app = this._app = express();
         app.use(express.json());
+        app.use(cors());
     }
 
     public addStatusQuery(accessorName: string, valueProducer: () => any) {
