@@ -17,14 +17,25 @@ let packageVersion: string = "0.0.0";
 
 try {
     // Read in package.json to get version information
-    const packageJsonContents = fs.readFileSync("./package.json");
+    const packageJsonContents = fs.readFileSync("../package.json");
     const packageJsonObj = JSON.parse(packageJsonContents.toString());
     if (packageJsonObj.version !== undefined) {
         packageVersion = packageJsonObj.version;
     }
 }
 catch (e) {
-    console.error("Error reading package.json: ", e);
+    // If the script is run via `node dist/index.js`, then we want to
+    // look at the current directory
+    try {
+        const packageJsonContents = fs.readFileSync("./package.json");
+        const packageJsonObj = JSON.parse(packageJsonContents.toString());
+        if (packageJsonObj.version !== undefined) {
+            packageVersion = packageJsonObj.version;
+        }
+    }
+    catch(e2) {
+        console.error("Error reading package.json: ", e2);
+    }
 }
 
 // Set up command line options
