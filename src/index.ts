@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from "fs";
+import path from "path";
 import WPILibWSRomiRobot from "./romi-robot";
 import { WPILibWSRobotEndpoint, WPILibWSServerConfig, WPILibWSClientConfig } from "@wpilib/wpilib-ws-robot";
 import MockI2C from "./i2c/mock-i2c";
@@ -15,27 +16,18 @@ import MockRomiImu from "./mocks/mock-imu";
 
 let packageVersion: string = "0.0.0";
 
+const packageJsonPath = path.resolve(__dirname, "../package.json");
+
 try {
     // Read in package.json to get version information
-    const packageJsonContents = fs.readFileSync("../package.json");
+    const packageJsonContents = fs.readFileSync(packageJsonPath);
     const packageJsonObj = JSON.parse(packageJsonContents.toString());
     if (packageJsonObj.version !== undefined) {
         packageVersion = packageJsonObj.version;
     }
 }
 catch (e) {
-    // If the script is run via `node dist/index.js`, then we want to
-    // look at the current directory
-    try {
-        const packageJsonContents = fs.readFileSync("./package.json");
-        const packageJsonObj = JSON.parse(packageJsonContents.toString());
-        if (packageJsonObj.version !== undefined) {
-            packageVersion = packageJsonObj.version;
-        }
-    }
-    catch(e2) {
-        console.error("Error reading package.json: ", e2);
-    }
+    console.error("Error reading package.json: ", e);
 }
 
 // Set up command line options
