@@ -9,9 +9,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Get commit hash
+      id: commit_hash
+      run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
     - name: Use Node.js
       uses: actions/setup-node@v1
       with:
         node-version: '14.x'
     - run: npm install
     - run: npm run build-js --if-present
+    - name: Get New Package Version
+      id: get-package-version
+      uses: martinbeentjes/npm-get-version-action@master
+    - name: Re-version package with commit hash for PR artifact
+      run: npm version --no-git-tag-version ${{ steps.get-package-version.outputs.current-version }}-${{ steps.commit_hash.outputs.sha_short }}
+    - name: Generate offline bundled package
+      run: npm run pack-all
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: romi-service-${{ steps.get-package-version.outputs.current-version }}-${{ steps.commit_hash.outputs.sha_short }}.tgz
+        path: wpilib-*.tgz
