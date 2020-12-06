@@ -43,6 +43,8 @@ jobs:
     - name: Get New Package Version
       id: get-package-version
       uses: martinbeentjes/npm-get-version-action@master
+    - name: Generate bundled package
+      run: npm run pack-all
     - name: Generate GitHub Release
       uses: actions/create-release@v1
       id: create_release
@@ -55,3 +57,13 @@ jobs:
           Update release text here
         draft: true
         prerelease: false
+    - name: Attach bundled artifact
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./wpilib-wpilib-ws-robot-romi-${{ steps.get-package-version.outputs.current-version }}.tgz
+        asset_name: romi-service-${{ steps.get-package-version.outputs.current-version }}.tgz
+        asset_content_type: application/gzip
+
