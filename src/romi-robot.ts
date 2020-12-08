@@ -141,6 +141,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 })
                 .then(() => {
                     console.log("[ROMI] LSM6DS33 Initialized");
+                })
+                .catch(err => {
+                    console.log("[ROMI] Failed to initialize IMU");
                 });
             })
             .then(() => {
@@ -187,6 +190,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                         this._i2cErrorDetector.addErrorInstance();
                     });
                 }, 500);
+            })
+            .catch(err => {
+                console.log("[ROMI] Failed to initialize robot: ", err);
             });
     }
 
