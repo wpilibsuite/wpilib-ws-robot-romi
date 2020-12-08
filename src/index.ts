@@ -13,6 +13,7 @@ import MockRomiI2C from "./mocks/mock-romi";
 import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import RestInterface from "./rest-interface/rest-interface";
 import MockRomiImu from "./mocks/mock-imu";
+import GyroCalibrationUtil from "./gyro-calibration-util";
 
 let packageVersion: string = "0.0.0";
 
@@ -126,6 +127,9 @@ else {
     console.log(`[CONFIG] Mode: Client, Host: ${serviceConfig.host}, Port: ${serviceConfig.port}, URI: ${serviceConfig.uri}`);
 }
 
+// Set up the gyro calibration util
+const gyroCalibrationUtil: GyroCalibrationUtil = new GyroCalibrationUtil(robot.getIMU());
+
 // Set up the REST interface
 const restInterface: RestInterface = new RestInterface();
 restInterface.addStatusQuery("service-version", () => {
@@ -153,13 +157,40 @@ restInterface.addStatusQuery("battery-status", () => {
     };
 });
 
+restInterface.addIMUAction("calibrate", () => {
+    gyroCalibrationUtil.calibrate();
+});
+
+restInterface.addIMUStatusQuery("calibration-state", () => {
+    return {
+        state: gyroCalibrationUtil.currentState,
+        percentComplete: gyroCalibrationUtil.percentComplete,
+        estimatedTimeLeft: gyroCalibrationUtil.estimatedTimeLeft
+    };
+});
+
+restInterface.addIMUStatusQuery("last-calibration-values", () => {
+    return {
+        zeroOffset: gyroCalibrationUtil.lastZeroOffsetValue,
+        noise: gyroCalibrationUtil.lastNoiseValue
+    };
+});
+
+restInterface.addIMUStatusQuery("gyro-reading", () => {
+    return robot.getIMU().gyroDPS;
+});
+
+restInterface.addIMUStatusQuery("accel-reading", () => {
+    return robot.getIMU().accelerationG;
+});
+
 endpoint.startP()
 .then(() => {
     console.log(`[SERVICE] Endpoint (${serviceConfig.endpointType}) Started`);
 })
 .then(() => {
     console.log("[REST-INTERFACE] Endpoints:");
-    restInterface.getAccessorList().forEach(accessor => {
+    restInterface.getEndpoints().forEach(accessor => {
         console.log(`[REST-INTERFACE] ${accessor}`);
     });
 

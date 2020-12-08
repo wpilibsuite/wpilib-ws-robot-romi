@@ -190,6 +190,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             });
     }
 
+    public getIMU(): LSM6 {
+        return this._lsm6;
+    }
+
     public readyP(): Promise<void> {
         return this._readyP;
     }
