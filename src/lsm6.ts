@@ -100,17 +100,17 @@ export interface Vector3 {
 }
 
 const ACCEL_SCALE_CTRL_BYTE: Map<AccelerometerScale, number> = new Map<AccelerometerScale, number>();
-ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_2G, 0x80);
-ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_4G, 0x88);
-ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_8G, 0x8C);
-ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_16G, 0x84);
+ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_2G, 0x40);
+ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_4G, 0x48);
+ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_8G, 0x4C);
+ACCEL_SCALE_CTRL_BYTE.set(AccelerometerScale.SCALE_16G, 0x44);
 
 const GYRO_SCALE_CTRL_BYTE: Map<GyroScale, number> = new Map<GyroScale, number>();
-GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_125_DPS, 0x82);
-GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_250_DPS, 0x80);
-GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_500_DPS, 0x84);
-GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_1000_DPS, 0x88);
-GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_2000_DPS, 0x8C);
+GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_125_DPS, 0x42);
+GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_250_DPS, 0x40);
+GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_500_DPS, 0x44);
+GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_1000_DPS, 0x48);
+GYRO_SCALE_CTRL_BYTE.set(GyroScale.SCALE_2000_DPS, 0x4C);
 
 // Sensitivity in mg/LSB
 const ACCEL_OUTPUT_SCALE_FACTOR: Map<AccelerometerScale, number> = new Map<AccelerometerScale, number>();
@@ -127,9 +127,17 @@ GYRO_OUTPUT_SCALE_FACTOR.set(GyroScale.SCALE_500_DPS, 17.5);
 GYRO_OUTPUT_SCALE_FACTOR.set(GyroScale.SCALE_1000_DPS, 35);
 GYRO_OUTPUT_SCALE_FACTOR.set(GyroScale.SCALE_2000_DPS, 70);
 
+export interface LSM6Config {
+    accelOffset?: Vector3;
+    gyroOffset?: Vector3;
+}
+
 export default class LSM6 {
     private _accel: Vector3 = { x: 0, y: 0, z: 0 };
     private _gyro: Vector3 = { x: 0, y: 0, z: 0 };
+
+    private _accelOffset: Vector3 = { x: 0, y: 0, z: 0 };
+    private _gyroOffset: Vector3 = { x: 0, y: 0, z: 0 };
 
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
@@ -139,10 +147,17 @@ export default class LSM6 {
     private _accelerometerScale: AccelerometerScale = AccelerometerScale.SCALE_2G;
     private _gyroScale: GyroScale = GyroScale.SCALE_250_DPS;
 
-    constructor(bus: I2CPromisifiedBus, address: number) {
+    constructor(bus: I2CPromisifiedBus, address: number, config?: LSM6Config) {
         this._i2cAddress = address;
         this._i2cBus = bus;
 
+        if (config?.accelOffset) {
+            this.accelOffset = config.accelOffset;
+        }
+
+        if (config?.gyroOffset) {
+            this.gyroOffset = config.gyroOffset;
+        }
     }
 
     public init(): Promise<void> {
@@ -164,6 +179,26 @@ export default class LSM6 {
 
     public get gyroDPS(): Vector3 {
         return this._gyro;
+    }
+
+    public get accelOffset(): Vector3 {
+        return this._accelOffset;
+    }
+
+    public set accelOffset(val: Vector3) {
+        this._accelOffset = val;
+    }
+
+    public get gyroOffset(): Vector3 {
+        return this._gyroOffset;
+    }
+
+    public set gyroOffset(val: Vector3) {
+        this._gyroOffset = val;
+    }
+
+    public resetGyro() {
+        this._gyro = { x: 0, y: 0, z: 0 };
     }
 
     public async enableDefault(): Promise<void> {
@@ -290,9 +325,9 @@ export default class LSM6 {
 
         const scaleFactor = GYRO_OUTPUT_SCALE_FACTOR.get(this._gyroScale);
 
-        this._gyro.x = (scaleFactor * gyroXsigned) / 1000;
-        this._gyro.y = (scaleFactor * gyroYsigned) / 1000;
-        this._gyro.z = (scaleFactor * gyroZsigned) / 1000;
+        this._gyro.x = ((scaleFactor * gyroXsigned) / 1000) - this._gyroOffset.x;
+        this._gyro.y = ((scaleFactor * gyroYsigned) / 1000) - this._gyroOffset.y;
+        this._gyro.z = ((scaleFactor * gyroZsigned) / 1000) - this._gyroOffset.z;
     }
 
     private _readByte(cmd: number): Promise<number> {

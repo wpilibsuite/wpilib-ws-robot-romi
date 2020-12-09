@@ -18,6 +18,8 @@ export default class RestInterface {
     private _port: number;
 
     private _statusAccessors: Map<string, () => any> = new Map<string, () => any>();
+    private _imuActions: Map<string, () => void> = new Map<string, () => void>();
+    private _imuStatusAccessors: Map<string, () => any> = new Map<string, () => any>();
 
     constructor(config?: RestInterfaceConfig) {
         this._port = DEFAULT_PORT;
@@ -41,6 +43,15 @@ export default class RestInterface {
             });
 
             res.status(200).send(data);
+        });
+
+        this._app.get("/imu/status", (req, res) => {
+            const data: AllStatusResponse = {};
+            this._imuStatusAccessors.forEach((valueProducer, accessorName) => {
+                data[accessorName] = valueProducer();
+            });
+
+            res.status(200).send(data);
         })
     }
 
@@ -51,6 +62,29 @@ export default class RestInterface {
 
         this._statusAccessors.set(accessorName, valueProducer);
         this._app.get(`/status/${accessorName}`, (req, res) => {
+            res.status(200).send(valueProducer());
+        });
+    }
+
+    public addIMUAction(actionName: string, actionFunc: () => void) {
+        if (this._imuActions.has(actionName)) {
+            return;
+        }
+
+        this._imuActions.set(actionName, actionFunc);
+        this._app.post("/imu/calibrate", (req, res) => {
+            actionFunc();
+            res.status(200).send({});
+        });
+    }
+
+    public addIMUStatusQuery(accessorName: string, valueProducer: () => any) {
+        if (this._imuStatusAccessors.has(accessorName)) {
+            return;
+        }
+
+        this._imuStatusAccessors.set(accessorName, valueProducer);
+        this._app.get(`/imu/status/${accessorName}`, (req, res) => {
             res.status(200).send(valueProducer());
         });
     }
@@ -69,11 +103,19 @@ export default class RestInterface {
         }
     }
 
-    public getAccessorList(): string[] {
+    public getEndpoints(): string[] {
         const list: string[] = [];
 
         this._statusAccessors.forEach((valProducer, accessorName) => {
             list.push(`GET /status/${accessorName}`);
+        });
+
+        this._imuStatusAccessors.forEach((valProducer, accessorName) => {
+            list.push(`GET /imu/status/${accessorName}`);
+        });
+
+        this._imuActions.forEach((actionFunc, actionName) => {
+            list.push(`POST /imu/${actionName}`);
         });
 
         return list;
