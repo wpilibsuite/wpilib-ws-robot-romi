@@ -8,7 +8,7 @@ export enum EndpointType {
 export default class ServiceConfiguration {
     private _endpointType: EndpointType = EndpointType.SERVER;
     private _forceMockI2C: boolean = false;
-    private _port: number = 8080;
+    private _port: number = 3300;
     private _host: string = "localhost";
     private _uri: string = "/wpilibws";
 
