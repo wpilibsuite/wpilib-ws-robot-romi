@@ -165,9 +165,11 @@ export default class LSM6 {
         .then(whoami => {
             if (whoami !== DS33_WHO_ID) {
                 console.log("[IMU] Invalid WHO_AM_I response");
+                throw new Error("Invalid WHO_AM_I");
             }
             else {
                 console.log("[IMU] Identified as LSM6DS33");
+                console.log("[IMU] Gyro Zero Offset at Init: " + JSON.stringify(this._gyroOffset));
                 this._isReady = true;
             }
         });

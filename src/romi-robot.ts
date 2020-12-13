@@ -7,6 +7,7 @@ import I2CErrorDetector from "./i2c-error-detector";
 import LSM6, { GyroScale } from "./lsm6";
 import RomiSimAccelerometer from "./romi-sim-accelerometer";
 import RomiSimGyro from "./romi-sim-gyro";
+import RomiConfiguration from "./romi-config";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -86,9 +87,12 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _accelerometerSimDevice: RomiSimAccelerometer;
     private _gyroSimDevice: RomiSimGyro;
 
+    // Keep track of the number of active WS connections
+    private _numWsConnections: number = 0;
+
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
-    constructor(bus: I2CPromisifiedBus, address: number, ioConfig?: IPinConfiguration[]) {
+    constructor(bus: I2CPromisifiedBus, address: number, romiConfig?: RomiConfiguration) {
         super();
 
         this._i2cBus = bus;
@@ -102,13 +106,19 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this.registerSimDevice(this._accelerometerSimDevice);
         this.registerSimDevice(this._gyroSimDevice);
 
-        // Set up the overlay configuration
-        if (ioConfig) {
-            if(this._verifyConfiguration(ioConfig)) {
-                this._ioConfiguration = ioConfig;
+        // Configure the onboard hardware
+        if (romiConfig) {
+            if (romiConfig.externalIOConfig) {
+                if(this._verifyConfiguration(romiConfig.externalIOConfig)) {
+                    this._ioConfiguration = romiConfig.externalIOConfig;
+                }
+                else {
+                    console.log("[ROMI] Error verifying pin configuration. Reverting to default");
+                }
             }
-            else {
-                console.log("[ROMI] Error verifying pin configuration. Reverting to default");
+
+            if (romiConfig.gyroZeroOffset) {
+                this._lsm6.gyroOffset = romiConfig.gyroZeroOffset;
             }
         }
 
@@ -143,7 +153,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     console.log("[ROMI] LSM6DS33 Initialized");
                 })
                 .catch(err => {
-                    console.log("[ROMI] Failed to initialize IMU");
+                    console.log("[ROMI] Failed to initialize IMU: " + err.message);
                 });
             })
             .then(() => {
@@ -421,6 +431,27 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (encoderInfo) {
             encoderInfo.isSoftwareReversed = reverse;
         }
+    }
+
+    /**
+     * Called when a new WebSocket connection occurs
+     */
+    public onWSConnection(): void {
+        // If this is the first WS connection
+        if (this._numWsConnections === 0) {
+            // Reset the gyro. This will ensure that the gyro will
+            // read 0 (or close to it) as the robot program starts up
+            this._lsm6.resetGyro();
+        }
+
+        this._numWsConnections++;
+    }
+
+    /**
+     * Called when a WebSocket disconnects
+     */
+    public onWSDisconnection(): void {
+        this._numWsConnections--;
     }
 
     protected async _readByte(cmd: number): Promise<number> {

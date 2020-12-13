@@ -105,7 +105,7 @@ else {
 
 console.log(`[CONFIG] External Pins: ${romiConfig.pinConfigurationString}`);
 
-const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14, romiConfig.externalIOConfig);
+const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14, romiConfig);
 
 if (serviceConfig.endpointType === EndpointType.SERVER) {
     const serverSettings: WPILibWSServerConfig = {
@@ -169,7 +169,7 @@ restInterface.addIMUStatusQuery("calibration-state", () => {
     };
 });
 
-restInterface.addIMUStatusQuery("last-calibration-values", () => {
+restInterface.addIMUStatusQuery("last-gyro-calibration-values", () => {
     return {
         zeroOffset: gyroCalibrationUtil.lastZeroOffsetValue,
         noise: gyroCalibrationUtil.lastNoiseValue
@@ -182,6 +182,10 @@ restInterface.addIMUStatusQuery("gyro-reading", () => {
 
 restInterface.addIMUStatusQuery("accel-reading", () => {
     return robot.getIMU().accelerationG;
+});
+
+restInterface.addIMUStatusQuery("gyro-offset", () => {
+    return robot.getIMU().gyroOffset;
 });
 
 endpoint.startP()
