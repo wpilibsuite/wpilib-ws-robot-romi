@@ -12,7 +12,7 @@ List of all hardware needs to leverage this repository.
 1. USB 2.0 to micro USB male-to-male cable, [example](https://www.amazon.com/AmazonBasics-Male-Micro-Cable-Black/dp/B0711PVX6Z) (for downloading firmware onto the Romi 32U4)
 1. microSD Card, [example](https://www.amazon.com/Sandisk-Ultra-Micro-UHS-I-Adapter/dp/B073K14CVB/) (for Raspberry Pi)
 1. microSD Card reader/writer, [example](https://www.amazon.com/gp/product/B081VHSB2V) (for initial install of Pi OS)
-1. 4 AA batteries, [example](https://www.amazon.com/Energizer-Batteries-Battery-Alkaline-E91BP-24/dp/B004U429AQ/) (to power Romi and Pi)
+1. 6 AA batteries, [example](https://www.amazon.com/Energizer-Batteries-Battery-Alkaline-E91BP-24/dp/B004U429AQ/) (to power Romi and Pi)
 
 ## Optional hardware
 1. [Robot Arm ($79.95)](https://www.pololu.com/product/3550)
