@@ -188,6 +188,8 @@ restInterface.addIMUStatusQuery("gyro-offset", () => {
     return robot.getIMU().gyroOffset;
 });
 
+endpoint.wsVerboseMode = true;
+
 endpoint.startP()
 .then(() => {
     console.log(`[SERVICE] Endpoint (${serviceConfig.endpointType}) Started`);
