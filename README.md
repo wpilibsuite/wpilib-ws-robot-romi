@@ -5,156 +5,25 @@ Pololu Romi 32U4 Reference Robot for WPILib WebSocket Interface
 ## **Introduction**
 This repository contains a reference implementation of a robot that can be controlled via the WPILib HALSim WebSocket extensions. The chassis and controller are based around the [Romi robot](https://www.pololu.com/category/202/romi-chassis-and-accessories) and associated [Control Board](https://www.pololu.com/product/3544) from Pololu.
 
+## **Usage with WPILib**
+For usage with WPILib, please take a look at the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html). It has more information on how to install the WPILibPi Raspberry Pi image, which comes packaged with the software needed to image your Romi robot, and provides useful status information.
+
 ## **Kit of Parts**
-Please refer to our [Kit of Parts](docs/KitOfParts.md) for phyical hardware needs.
+NEW: Please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html) for up-to-date information on the Romi hardware.
 
 ## **Software Dependencies**
-It is assumed that the steps necessary for installation of [FRC 2020](https://docs.wpilib.org/en/stable/docs/getting-started/getting-started-frc-control-system/index.html) (specifically FRC VS Code 2020 and FRC Driver Station) have been executed prior as they are a dependency for this project.
+NEW: Please use the 2021 WPILib installer ([Beta 4](https://github.com/wpilibsuite/allwpilib/releases/tag/v2021.1.1-beta-4) or later) to install the necessary development software for use with the Romi.
 
 ## **Raspbery Pi Installation**
-This section covers everything that needs to be installed on the Raspberry Pi.
-### **Installing and configuring Raspberry Pi OS**
-1. Format and install Raspberry Pi OS on your micro SD Card. The steps to do this can be found [here](https://www.raspberrypi.org/documentation/installation/installing-images/) (We recommend using Raspberry Pi Imager) 
-1.  Configure your Raspberry Pi for Wifi and ssh per steps [here](https://desertbot.io/blog/headless-raspberry-pi-3-bplus-ssh-wifi-setup)
-1. Insert SD card into the Pi and power on
-1. SSH in using pi@raspberrypi (username pi, password raspberry)
-1. Setup i2c:<pre><code>sudo raspi-config
-</code></pre>
-6. Enable i2c per screenshots below:
-![](resources/raspi-config-screen-1.png)
-![](resources/raspi-config-screen-2.png)
-![](resources/raspi-config-screen-3.png)
-### **Installing node and romi node package**
-1. Install nodejs on the Pi using instructions at [nvm github repo](https://github.com/nvm-sh/nvm)
-1. Install romi node package:<pre><code>npm install -g wpilib-ws-robot-romi</code></pre>
-Or clone this repository and use:<pre></code>npm install</code></pre>
-1. Run the binary. This will launch a WebSocket server on port 8080, as well as attempt to connect to Romi 32U4 control board.<pre><code>wpilibws-romi
-</code></pre>
-Or if cloned, use:<pre><code>npm run start</code></pre>
-1. (Optional) set wpilibws-romi to launch upon startup. *If you are using this repository locally on the pi, change 'ExecStart=wpilibws-romi' to 'ExecStart=node \<directory cloned\>/wpilib-ws-robot-romi/dist/index.js' instead.*
-Create wpilibws-romi.service in `/etc/systemd/system/` with the following code:<pre><code>[Unit]
-Description=WPILIB Drivethrough
-After=network.target<br />
-[Service]
-ExecStart=wpilibws-romi
-WorkingDirectory=/home
-StandardOutput=inherit
-StandardError=inherit
-Restart=always
-User=pi<br />
-[Install]
-WantedBy=multi-user.target
-</code></pre>
-Then run the following command:<pre><code>sudo systemctl enable wpilibws-romi.service
-</code></pre>
-
-NOTE: The application will only run correctly on a Raspberry Pi that is connected to the Romi 32U4 board. (This is a reference implementation after all)
+NEW: For the latest information on how to image your Raspberry Pi for use with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html).
 
 ## **Controlling The Robot via WPILib**
-To connect your WPILib-based robot program to the Romi reference robot, you will need a few things:
-- A Raspberry Pi 3/4 and a Romi 32U4 control board (follow the hardware assembly instructions [here](https://www.pololu.com/blog/663/building-a-raspberry-pi-robot-with-the-romi-chassis))
-- Appropriate firmware on the Romi (See the [firmware README](firmware/README.md) for instructions)
-- An up-to-date version of WPILib (See Note on WPILib below for more information)
-
-### **Note on WPILib**
-As of this writing, a published version of WPILib containing the WebSocket extensions is not yet available. To test this out, you will need to build a local copy of WPILib and have it linked to your robot code.
-
-Clone the [WPILib repository](https://github.com/wpilibsuite/allwpilib) to your robot code development computer. Once that is done, run `./gradlew publish` which will build all of WPILib (including the HALSim extensions) and publish them to a maven repository on your local computer (specifically in `~/releases/maven/development`).
-
-In your robot project's `build.gradle` file, add the following lines below the `plugins` block:
-
-```groovy
-wpi.maven.useFrcMavenLocalDevelopment = true
-wpi.wpilibVersion = "2020.424242.+"
-```
-
-The top of your `build.gradle` file should look something like this:
-```groovy
-plugins {
-    id "java"
-    id "edu.wpi.first.GradleRIO" version "2020.3.2"
-}
-
-wpi.maven.useFrcMavenLocalDevelopment = true
-wpi.wpilibVersion = "2020.424242.+"
-```
-
-You will also need to create a file named `WPILibMath2020.json` in the `vendordeps` folder (at root level of VSCode project) with the following content:
-```
-{
-  "fileName": "WPILibMath2020.json",
-  "name": "WPILib-Math-2020",
-  "version": "2020.0.0",
-  "uuid": "42aa5bbe-f8f5-493f-914a-16cb5d7507f3",
-  "mavenUrls": [],
-  "jsonUrl": "",
-  "javaDependencies": [
-      {
-          "groupId": "edu.wpi.first.wpimath",
-          "artifactId": "wpimath-java",
-          "version": "wpilib"
-      }
-  ],
-  "jniDependencies": [
-      {
-          "groupId": "edu.wpi.first.wpimath",
-          "artifactId": "wpimath-cpp",
-          "version": "wpilib",
-          "isJar": false,
-          "skipInvalidPlatforms": true,
-          "validPlatforms": [
-              "linuxathena",
-              "linuxraspbian",
-              "linuxaarch64bionic",
-              "windowsx86-64",
-              "windowsx86",
-              "linuxx86-64",
-              "osxx86-64"
-          ]
-      }
-  ],
-  "cppDependencies": [
-      {
-          "groupId": "edu.wpi.first.wpimath",
-          "artifactId": "wpimath-cpp",
-          "version": "wpilib",
-          "libName": "wpimath",
-          "headerClassifier": "headers",
-          "sourcesClassifier": "sources",
-          "sharedLibrary": true,
-          "skipInvalidPlatforms": true,
-          "binaryPlatforms": [
-              "linuxathena",
-              "linuxraspbian",
-              "linuxaarch64bionic",
-              "windowsx86-64",
-              "windowsx86",
-              "linuxx86-64",
-              "osxx86-64"
-          ]
-      }
-  ]
-}
-```
-
-With this, your robot project is set to be run against the local development build of WPILib.
-
-### **Configuring Robot Project**
-In order to actually be able to use the extensions, we'll need to add them as dependencies. To do this, add this to your `dependencies` block:
-
-```groovy
-simulation "edu.wpi.first.halsim:halsim_ds_socket:${wpi.wpilibVersion}:${wpi.platforms.desktop}@zip"
-simulation "edu.wpi.first.halsim:halsim_ws_client:${wpi.wpilibVersion}:${wpi.platforms.desktop}@zip"
-```
-
-This provides access to the WebSocket (client) extension as well as the DS extension (which allows you to use the actual FRC Driver Station) with your simulated robot code.
+NEW: For the latest information on how to use WPILib with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html).
 
 ### **Running Robot Project**
-First, ensure that this application is running on the Raspberry Pi. If it's not, start it on the Pi with `wpilibws-romi` or `npm run start` if code cloned locally.
+NEW: For the latest information on how to use WPILib with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html).
 
-Next, set an environment variable `HALSIMWS_HOST` to be whatever the IP address of the Raspberry Pi is.
-
-Finally, in your robot project, Hit `F5` or run `Simulate Robot Code on Desktop` from the VSCode Palette (`Ctrl+Shift+P`).
+In your robot project, Hit `F5` or run `Simulate Robot Code on Desktop` from the VSCode Palette (`Ctrl+Shift+P`).
 
 ![](resources/vscode-palette-simulate.png)
 
