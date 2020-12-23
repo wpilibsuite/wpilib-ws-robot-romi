@@ -4,10 +4,10 @@ import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import I2CErrorDetector from "./i2c-error-detector";
-import LSM6, { GyroScale } from "./lsm6";
-import RomiSimAccelerometer from "./romi-sim-accelerometer";
-import RomiSimGyro from "./romi-sim-gyro";
+import LSM6 from "./lsm6";
 import RomiConfiguration from "./romi-config";
+import RomiAccelerometer from "./romi-accelerometer";
+import RomiGyro from "./romi-gyro";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -84,8 +84,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _i2cErrorDetector: I2CErrorDetector = new I2CErrorDetector(10, 500, 100);
 
     private _lsm6: LSM6;
-    private _accelerometerSimDevice: RomiSimAccelerometer;
-    private _gyroSimDevice: RomiSimGyro;
+
+    private _romiAccelerometer: RomiAccelerometer;
+    private _romiGyro: RomiGyro;
 
     // Keep track of the number of active WS connections
     private _numWsConnections: number = 0;
@@ -98,13 +99,13 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._i2cBus = bus;
         this._i2cAddress = address;
 
-        // Set up the LSM6DS33 (and associated SimDevice-s)
+        // Set up the LSM6DS33 (and associated Romi IMU devices-s)
         this._lsm6 = new LSM6(this._i2cBus, 0x6B);
-        this._accelerometerSimDevice = new RomiSimAccelerometer(this._lsm6);
-        this._gyroSimDevice = new RomiSimGyro(this._lsm6);
+        this._romiAccelerometer = new RomiAccelerometer(this._lsm6);
+        this._romiGyro = new RomiGyro(this._lsm6);
 
-        this.registerSimDevice(this._accelerometerSimDevice);
-        this.registerSimDevice(this._gyroSimDevice);
+        this.registerAccelerometer(this._romiAccelerometer);
+        this.registerGyro(this._romiGyro);
 
         // Configure the onboard hardware
         if (romiConfig) {
@@ -181,8 +182,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._lsm6.readGyro();
 
                     // Update the SimDevices
-                    this._accelerometerSimDevice.update();
-                    this._gyroSimDevice.update();
+                    this._romiAccelerometer.update();
+                    this._romiGyro.update();
                 }, 50);
 
                 // Set up the status check
