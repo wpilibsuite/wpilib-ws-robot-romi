@@ -11,6 +11,8 @@ static constexpr int kModeDigitalIn = 1;
 static constexpr int kModeAnalogIn = 2;
 static constexpr int kModePwm = 3;
 
+static constexpr uint16_t kMinOperatingMV = 5550;
+
 /*
 
   // Built-ins
@@ -51,6 +53,9 @@ unsigned long lastHeartbeat = 0;
 
 bool testModeLedFlag = false;
 unsigned long lastSwitchTime = 0;
+
+uint16_t lastBatteryMV = 0;
+bool isLowVoltage = false;
 
 void configureBuiltins(uint8_t config) {
   // structure
@@ -146,7 +151,6 @@ void testModeInit() {
   buzzer.play("!L16 v10 cdefgab>c");
 
   Serial.begin(9600);
-
 }
 
 // Initialization routines for normal operation
@@ -208,7 +212,48 @@ void testModeLoop() {
   }
 }
 
+unsigned long lastPauseTime;
+bool beepPaused = false;
+uint8_t beepCount = 0;
+bool beepState = false;
+void lowVoltageBeep() {
+  if (!beepPaused) {
+    if (!buzzer.isPlaying()) {
+      if (beepState) {
+        buzzer.playFrequency(440, 250, 7);
+      }
+      else {
+        buzzer.playFrequency(220, 250, 7);
+      }
+      beepState = !beepState;
+      beepCount++;
+    }
+
+    if (beepCount > 10) {
+      beepCount = 0;
+      beepPaused = true;
+      lastPauseTime = millis();
+    }
+  }
+  else {
+    if (millis() - lastPauseTime > 3000) {
+      beepPaused = false;
+    }
+  }
+}
+
 void normalModeLoop() {
+  lastBatteryMV = readBatteryMillivolts();
+
+  isLowVoltage = lastBatteryMV < kMinOperatingMV;
+
+  // Shutdown motors if in low voltage mode
+  if (isLowVoltage) {
+    lowVoltageBeep();
+    rPiLink.buffer.leftMotor = 0;
+    rPiLink.buffer.rightMotor = 0;
+  }
+
   // Check heartbeat and shutdown motors if necessary
   if (millis() - lastHeartbeat > 1000) {
     rPiLink.buffer.leftMotor = 0;
@@ -263,7 +308,8 @@ void normalModeLoop() {
         }
       } break;
       case kModePwm: {
-        if (pwms[i].attached()) {
+        // Only allow writes to PWM if we're not currently locked out due to low voltage
+        if (pwms[i].attached() && !isLowVoltage) {
           pwms[i].write(map(rPiLink.buffer.extIoValues[i], -400, 400, 0, 180));
         }
       } break;
@@ -287,7 +333,7 @@ void normalModeLoop() {
   rPiLink.buffer.leftEncoder = encoders.getCountsLeft();
   rPiLink.buffer.rightEncoder = encoders.getCountsRight();
 
-  rPiLink.buffer.batteryMillivolts = readBatteryMillivolts();
+  rPiLink.buffer.batteryMillivolts = lastBatteryMV;
 }
 
 void setup() {
@@ -295,6 +341,9 @@ void setup() {
 
   // Flip the right side motor to better match normal FRC setups
   motors.flipRightMotor(true);
+
+  // Initial battery reading
+  lastBatteryMV = readBatteryMillivolts();
 
   // Determine if we should enter test mode
   // If button A and B are pressed during power up, enter test mode
