@@ -9,6 +9,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Install Python deps
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
     - name: Get commit hash
       id: commit_hash
       run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
@@ -17,7 +25,7 @@ jobs:
       with:
         node-version: '14.x'
     - run: npm install
-    - run: npm run build-js --if-present
+    - run: npm run build --if-present
     - name: Get New Package Version
       id: get-package-version
       uses: martinbeentjes/npm-get-version-action@master

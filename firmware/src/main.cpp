@@ -293,6 +293,9 @@ void normalModeLoop() {
 void setup() {
   rPiLink.init(20);
 
+  // Flip the right side motor to better match normal FRC setups
+  motors.flipRightMotor(true);
+
   // Determine if we should enter test mode
   // If button A and B are pressed during power up, enter test mode
   if (buttonA.isPressed() && buttonB.isPressed()) {
