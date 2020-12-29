@@ -79,6 +79,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _extPwmPins: number[] = []; // Idx maps to PWM channel of (2 + idx). Value is the IO pin index
 
     private _extPinConfiguration: number[] = [];
+    private _onboardPinConfiguration: number[] = [1, 0, 0, 0];
 
     private _readyP: Promise<void>;
     private _i2cErrorDetector: I2CErrorDetector = new I2CErrorDetector(10, 500, 100);
@@ -193,7 +194,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                             console.log("[ROMI] Status byte is 0. Assuming brown out. Rewriting IO config");
                             // If the status byte is 0, we might have browned out the romi
                             // So we write the IO configuration again
-                            this._writeIOConfiguration();
+                            this._writeOnboardIOConfiguration()
+                            .then(() => {
+                                this._writeIOConfiguration();
+                            });
+
                         }
                     })
                     .catch(err => {
@@ -239,19 +244,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         const channelMode = (mode === DigitalChannelMode.INPUT) ? 1 : 0;
 
-        if (channel < 4) {
-            // Builtin
-            let builtinModeConfig = (1 << 7);
-            builtinModeConfig |= ((channel << 2) & 0xC);
-            builtinModeConfig |= (channelMode & 0x3);
-
-            this._writeByte(RomiDataBuffer.builtinConfig.offset, builtinModeConfig)
-            .catch(err => {
-                this._i2cErrorDetector.addErrorInstance();
-            });
+        // For onboard IO, only channels 1 and 2 are configurable
+        if (channel == 1 || channel == 2) {
+            this._onboardPinConfiguration[channel] = channelMode;
+            this._writeOnboardIOConfiguration();
         }
-
-
 
         if (channel >= 8) {
             // DIO channels 8 and above are external
@@ -547,6 +544,22 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         });
 
         return this._writeIOConfiguration();
+    }
+
+    /**
+     * Write the onboard IO configuration in oneshot
+     */
+    private async _writeOnboardIOConfiguration(): Promise<void> {
+        let configRegister: number = (1 << 7);
+        this._onboardPinConfiguration.forEach((pinMode, ioIdx) => {
+            let pinModeConfig: number = (pinMode & 0x1) << ioIdx;
+            configRegister |= pinModeConfig;
+        });
+
+        return this._writeByte(RomiDataBuffer.builtinConfig.offset, configRegister, 3)
+        .catch(err => {
+            this._i2cErrorDetector.addErrorInstance();
+        });
     }
 
     /**
