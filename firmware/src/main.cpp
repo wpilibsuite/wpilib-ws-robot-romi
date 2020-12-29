@@ -5,13 +5,12 @@
 #include <ServoT3.h>
 
 #include "shmem_buffer.h"
+#include "low_voltage_helper.h"
 
 static constexpr int kModeDigitalOut = 0;
 static constexpr int kModeDigitalIn = 1;
 static constexpr int kModeAnalogIn = 2;
 static constexpr int kModePwm = 3;
-
-static constexpr uint16_t kMinOperatingMV = 5550;
 
 /*
 
@@ -46,6 +45,8 @@ uint8_t ioChannelModes[5] = {kModeDigitalOut, kModeDigitalOut, kModeDigitalOut, 
 uint8_t ioDioPins[5] = {11, 4, 20, 21, 22};
 uint8_t ioAinPins[5] = {0, A6, A2, A3, A4};
 
+LowVoltageHelper lvHelper;
+
 bool isTestMode = false;
 bool isConfigured = false;
 
@@ -53,9 +54,6 @@ unsigned long lastHeartbeat = 0;
 
 bool testModeLedFlag = false;
 unsigned long lastSwitchTime = 0;
-
-uint16_t lastBatteryMV = 0;
-bool isLowVoltage = false;
 
 void configureBuiltins(uint8_t config) {
   // structure
@@ -150,12 +148,19 @@ void configureIO(uint16_t config) {
 void testModeInit() {
   buzzer.play("!L16 v10 cdefgab>c");
 
+  while(buzzer.playCheck()) {
+    // no-op to let the init sound finish
+  }
+
   Serial.begin(9600);
 }
 
 // Initialization routines for normal operation
 void normalModeInit() {
   buzzer.play("v10>>g16>>>c16");
+  while(buzzer.playCheck()) {
+    // no-op to let the init sound finish
+  }
 }
 
 void testModeConfigureIO(uint16_t config) {
@@ -212,44 +217,15 @@ void testModeLoop() {
   }
 }
 
-unsigned long lastPauseTime;
-bool beepPaused = false;
-uint8_t beepCount = 0;
-bool beepState = false;
-void lowVoltageBeep() {
-  if (!beepPaused) {
-    if (!buzzer.isPlaying()) {
-      if (beepState) {
-        buzzer.playFrequency(440, 250, 7);
-      }
-      else {
-        buzzer.playFrequency(220, 250, 7);
-      }
-      beepState = !beepState;
-      beepCount++;
-    }
-
-    if (beepCount > 10) {
-      beepCount = 0;
-      beepPaused = true;
-      lastPauseTime = millis();
-    }
-  }
-  else {
-    if (millis() - lastPauseTime > 3000) {
-      beepPaused = false;
-    }
-  }
-}
-
 void normalModeLoop() {
-  lastBatteryMV = readBatteryMillivolts();
+  uint16_t battMV = readBatteryMillivolts();
+  lvHelper.update(battMV);
 
-  isLowVoltage = lastBatteryMV < kMinOperatingMV;
+  // Play the LV alert tune if we're in a low voltage state
+  lvHelper.lowVoltageAlertCheck();
 
   // Shutdown motors if in low voltage mode
-  if (isLowVoltage) {
-    lowVoltageBeep();
+  if (lvHelper.isLowVoltage()) {
     rPiLink.buffer.leftMotor = 0;
     rPiLink.buffer.rightMotor = 0;
   }
@@ -309,8 +285,14 @@ void normalModeLoop() {
       } break;
       case kModePwm: {
         // Only allow writes to PWM if we're not currently locked out due to low voltage
-        if (pwms[i].attached() && !isLowVoltage) {
-          pwms[i].write(map(rPiLink.buffer.extIoValues[i], -400, 400, 0, 180));
+        if (pwms[i].attached()) {
+          if (!lvHelper.isLowVoltage()) {
+            pwms[i].write(map(rPiLink.buffer.extIoValues[i], -400, 400, 0, 180));
+          }
+          else {
+            // Attempt to zero out servo-motors in a low voltage mode
+            pwms[i].write(90);
+          }
         }
       } break;
     }
@@ -333,17 +315,17 @@ void normalModeLoop() {
   rPiLink.buffer.leftEncoder = encoders.getCountsLeft();
   rPiLink.buffer.rightEncoder = encoders.getCountsRight();
 
-  rPiLink.buffer.batteryMillivolts = lastBatteryMV;
+  rPiLink.buffer.batteryMillivolts = battMV;
 }
 
 void setup() {
   rPiLink.init(20);
 
+  // Set up the buzzer in playcheck mode
+  buzzer.playMode(PLAY_CHECK);
+
   // Flip the right side motor to better match normal FRC setups
   motors.flipRightMotor(true);
-
-  // Initial battery reading
-  lastBatteryMV = readBatteryMillivolts();
 
   // Determine if we should enter test mode
   // If button A and B are pressed during power up, enter test mode
