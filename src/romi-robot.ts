@@ -11,9 +11,11 @@ import RomiGyro from "./romi-gyro";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
+    reportedPeriod: number; // This is the period that is reported to usercode
     lastRobotValue: number; // The last robot-reported value
     isHardwareReversed?: boolean;
     isSoftwareReversed?: boolean;
+    lastReportedTime?: number;
 }
 
 export enum IOPinMode {
@@ -360,6 +362,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (channelA === 4 && channelB === 5) {
             this._encoderInputValues.set(encoderChannel, {
                 reportedValue: 0,
+                reportedPeriod: Number.MAX_VALUE,
                 lastRobotValue: 0,
                 isHardwareReversed: false
             });
@@ -368,6 +371,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         else if (channelA === 5 && channelB === 4) {
             this._encoderInputValues.set(encoderChannel, {
                 reportedValue: 0,
+                reportedPeriod: Number.MAX_VALUE,
                 lastRobotValue: 0,
                 isHardwareReversed: true
             });
@@ -376,6 +380,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         else if (channelA === 6 && channelB === 7) {
             this._encoderInputValues.set(encoderChannel, {
                 reportedValue: 0,
+                reportedPeriod: Number.MAX_VALUE,
                 lastRobotValue: 0,
                 isHardwareReversed: false
             });
@@ -384,6 +389,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         else if (channelA === 7 && channelB === 6) {
             this._encoderInputValues.set(encoderChannel, {
                 reportedValue: 0,
+                reportedPeriod: Number.MAX_VALUE,
                 lastRobotValue: 0,
                 isHardwareReversed: false
             });
@@ -399,6 +405,14 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         }
 
         return this._encoderInputValues.get(channel).reportedValue;
+    }
+
+    public getEncoderPeriod(channel: number): number {
+        if (!this._encoderInputValues.has(channel)) {
+            return Number.MAX_VALUE;
+        }
+
+        return this._encoderInputValues.get(channel).reportedPeriod;
     }
 
     public resetEncoder(channel: number, keepLast?: boolean): void {
@@ -644,6 +658,22 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
                 encoderInfo.reportedValue += delta;
                 encoderInfo.lastRobotValue = encoderValue;
+
+                const currTimestamp = Date.now();
+
+                // Calculate the period
+                if (encoderInfo.lastReportedTime !== undefined) {
+                    const timespanMs = currTimestamp - encoderInfo.lastReportedTime;
+                    // Period = (approx) timespan / delta
+                    if (delta === 0) {
+                        encoderInfo.reportedPeriod = Number.MAX_VALUE;
+                    }
+                    else {
+                        encoderInfo.reportedPeriod = (timespanMs / delta) / 1000.0;
+                    }
+                }
+
+                encoderInfo.lastReportedTime = currTimestamp;
 
                 // If we're getting close to the limits, reset the romi
                 // encoder so we don't overflow
