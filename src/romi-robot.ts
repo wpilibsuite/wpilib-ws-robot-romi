@@ -158,8 +158,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 });
             })
             .then(() => {
-                // Initial set up of digital inputs (we set DIO 0 to input because it's a button)
-                this._digitalInputValues.set(0, false);
+                this._resetToCleanState();
 
                 // Set up the heartbeat
                 this._heartbeatTimer = setInterval(() => {
@@ -453,6 +452,11 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
      */
     public onWSDisconnection(): void {
         this._numWsConnections--;
+
+        // If this was our last disconnection, clear out all the state
+        if (this._numWsConnections === 0) {
+            this._resetToCleanState();
+        }
     }
 
     protected async _readByte(cmd: number): Promise<number> {
@@ -662,5 +666,21 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         .catch(err => {
             this._i2cErrorDetector.addErrorInstance();
         })
+    }
+
+    /**
+     * Resets the Romi to a known clean state
+     * This does NOT reset any IO configuration
+     */
+    private _resetToCleanState(): void {
+        this._digitalInputValues.clear();
+        this._encoderInputValues.clear();
+        this._analogInputValues.clear();
+
+        this._leftEncoderChannel = -1;
+        this._rightEncoderChannel = -1;
+
+        // Set up DIO 0 as an input because it's a button
+        this._digitalInputValues.set(0, false);
     }
 }
