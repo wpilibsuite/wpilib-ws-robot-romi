@@ -57,23 +57,12 @@ unsigned long lastSwitchTime = 0;
 
 void configureBuiltins(uint8_t config) {
   // structure
-  // [ConfigFlag] [Unused] [Unused] [Unused] [Channel] [Mode]
-  //       7         6        5         4        3,2     1,0
-  uint8_t channel = (config >> 2) & 0x3;
-  uint8_t mode = config & 0x3;
+  // [ConfigFlag] [Unused] [Unused] [Unused] [Unused] [DIO 2 Mode] [DIO 1 Mode] [Unused]
+  //       7         6        5         4        3          2            1          0
 
-  // Bail early if we get an invalid DIO channel or mode
-  // Also, only DIO 1 and 2 can be configured
-  // TODO: set an error flag somewhere?
-  if (channel > 3 || channel == 0 || channel == 3) return;
-  if (mode > 1) return;
-
-  if (channel == 1) {
-    builtinDio1Config = mode;
-  }
-  else if (channel == 2) {
-    builtinDio2Config = mode;
-  }
+  // We only care about bits 1 and 2
+  builtinDio1Config = (config >> 1) & 0x1;
+  builtinDio2Config = (config >> 2) & 0x1;
 
   // Wipe out the register
   rPiLink.buffer.builtinConfig = 0;
