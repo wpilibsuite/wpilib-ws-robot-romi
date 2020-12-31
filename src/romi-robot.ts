@@ -452,7 +452,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (this._numWsConnections === 0) {
             // Reset the gyro. This will ensure that the gyro will
             // read 0 (or close to it) as the robot program starts up
-            this._lsm6.resetGyro();
+            this._romiGyro.reset();
         }
 
         this._numWsConnections++;

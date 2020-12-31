@@ -10,7 +10,7 @@ export interface CalibrationConfig {
     sampleIntervalMs?: number;
 }
 
-const DEFAULT_NUM_SAMPLES: number = 500;
+const DEFAULT_NUM_SAMPLES: number = 1500;
 const DEFAULT_SAMPLE_INTERVAL_MS: number = 20;
 
 export default class GyroCalibrationUtil {

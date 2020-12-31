@@ -199,10 +199,6 @@ export default class LSM6 {
         this._gyroOffset = val;
     }
 
-    public resetGyro() {
-        this._gyro = { x: 0, y: 0, z: 0 };
-    }
-
     public async enableDefault(): Promise<void> {
         if (!this._isReady) {
             return;
