@@ -17,6 +17,7 @@ export default class RestInterface {
     private _server: Server;
     private _port: number;
 
+    private _statusActions: Map<string, () => void> = new Map<string, () => void>();
     private _statusAccessors: Map<string, () => any> = new Map<string, () => any>();
     private _imuActions: Map<string, () => void> = new Map<string, () => void>();
     private _imuStatusAccessors: Map<string, () => any> = new Map<string, () => any>();
@@ -66,13 +67,25 @@ export default class RestInterface {
         });
     }
 
+    public addStatusAction(actionName: string, actionFunc: () => void) {
+        if (this._statusActions.has(actionName)) {
+            return;
+        }
+
+        this._statusActions.set(actionName, actionFunc);
+        this._app.post(`/${actionName}`, (req, res) => {
+            actionFunc();
+            res.status(200).send({});
+        });
+    }
+
     public addIMUAction(actionName: string, actionFunc: () => void) {
         if (this._imuActions.has(actionName)) {
             return;
         }
 
         this._imuActions.set(actionName, actionFunc);
-        this._app.post("/imu/calibrate", (req, res) => {
+        this._app.post(`/imu/${actionName}`, (req, res) => {
             actionFunc();
             res.status(200).send({});
         });
@@ -108,6 +121,10 @@ export default class RestInterface {
 
         this._statusAccessors.forEach((valProducer, accessorName) => {
             list.push(`GET /status/${accessorName}`);
+        });
+
+        this._statusActions.forEach((actionFunc, actionName) => {
+            list.push(`POST /${actionName}`);
         });
 
         this._imuStatusAccessors.forEach((valProducer, accessorName) => {
