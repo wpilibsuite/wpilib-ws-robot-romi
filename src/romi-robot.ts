@@ -598,8 +598,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._extAnalogInPins.forEach((extIoIdx, ainIdx) => {
             const offset = RomiDataBuffer.extIoValues.offset + (extIoIdx * 2);
             this._readWord(offset)
-            .then(voltage => {
-                // TODO verify that this is available?
+            .then(adcVal => {
+                // The value sent over the wire is a 10-bit ADC value
+                // We'll need to convert it to 5V
+                const voltage = (adcVal / 1023.0) * 5.0;
                 this._analogInputValues.set(ainIdx, voltage);
             })
             .catch(err => {
