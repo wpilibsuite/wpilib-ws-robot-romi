@@ -130,14 +130,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         this._readyP =
             this._configureIO()
             .then(() => {
-                // Read firmware
-                return this._readByte(RomiDataBuffer.firmwareIdent.offset)
-                .then(fwIdent => {
-                    this._firmwareIdent = fwIdent;
-                })
-                .catch(err => {
-                    this._i2cErrorDetector.addErrorInstance();
-                });
+                // Read firmware identifier
+                return this.queryFirmwareIdent();
             })
             .then(() => {
                 // Verify firmware
@@ -199,6 +193,17 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                             this._writeOnboardIOConfiguration()
                             .then(() => {
                                 this._writeIOConfiguration();
+                            })
+                            .then(() => {
+                                // While we're at it... re-query the firmware
+                                // Doing this on a timeout to give the 32U4 time
+                                // to finish booting
+                                setTimeout(() => {
+                                    this.queryFirmwareIdent()
+                                    .then((fwIdent) => {
+                                        console.log("[ROMI] Firmware Identifier: " + fwIdent);
+                                    });
+                                }, 2000);
                             });
 
                         }
@@ -468,6 +473,19 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (this._numWsConnections === 0) {
             this._resetToCleanState();
         }
+    }
+
+    public async queryFirmwareIdent(): Promise<number> {
+        return this._readByte(RomiDataBuffer.firmwareIdent.offset)
+        .then(fwIdent => {
+            this._firmwareIdent = fwIdent;
+            return fwIdent;
+        })
+        .catch(err => {
+            this._i2cErrorDetector.addErrorInstance();
+            this._firmwareIdent = -1;
+            return -1;
+        });
     }
 
     protected async _readByte(cmd: number): Promise<number> {
