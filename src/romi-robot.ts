@@ -327,9 +327,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (channel < totalPwmPorts) {
             // We get the value in the range 0-255 but the romi
             // expects -400 to 400
-            // (Also, we need to flip the signs to get the robot driving
-            // in the correct orientation)
-            const romiValue = -Math.floor(((value / 255) * 800) - 400);
+            // Positive values here correspond to forward motion
+            const romiValue = Math.floor(((value / 255) * 800) - 400);
 
             // We need to do some trickery to get a twos-complement number
             // Essentially we'll write a 16 bit signed int to the buffer
