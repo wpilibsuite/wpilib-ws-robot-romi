@@ -6,22 +6,22 @@ Pololu Romi 32U4 Reference Robot for WPILib WebSocket Interface
 This repository contains a reference implementation of a robot that can be controlled via the WPILib HALSim WebSocket extensions. The chassis and controller are based around the [Romi robot](https://www.pololu.com/category/202/romi-chassis-and-accessories) and associated [Control Board](https://www.pololu.com/product/3544) from Pololu.
 
 ## **Usage with WPILib**
-For usage with WPILib, please take a look at the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html). It has more information on how to install the WPILibPi Raspberry Pi image, which comes packaged with the software needed to image your Romi robot, and provides useful status information.
+For usage with WPILib, please take a look at the [WPILib Romi documentation](https://docs.wpilib.org/en/stable/docs/romi-robot/index.html). It has more information on how to install the WPILibPi Raspberry Pi image, which comes packaged with the software needed to image your Romi robot, and provides useful status information.
 
 ## **Kit of Parts**
-NEW: Please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html) for up-to-date information on the Romi hardware.
+NEW: Please see the [WPILib Romi documentation](https://docs.wpilib.org/en/stable/docs/romi-robot/index.html) for up-to-date information on the Romi hardware.
 
 ## **Software Dependencies**
 NEW: Please use the 2021 WPILib installer ([Beta 4](https://github.com/wpilibsuite/allwpilib/releases/tag/v2021.1.1-beta-4) or later) to install the necessary development software for use with the Romi.
 
 ## **Raspbery Pi Installation**
-NEW: For the latest information on how to image your Raspberry Pi for use with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html).
+NEW: For the latest information on how to image your Raspberry Pi for use with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/stable/docs/romi-robot/index.html).
 
 ## **Controlling The Robot via WPILib**
-NEW: For the latest information on how to use WPILib with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html).
+NEW: For the latest information on how to use WPILib with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/stable/docs/romi-robot/index.html).
 
 ### **Running Robot Project**
-NEW: For the latest information on how to use WPILib with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/latest/docs/romi-robot/index.html).
+NEW: For the latest information on how to use WPILib with the Romi, please see the [WPILib Romi documentation](https://docs.wpilib.org/en/stable/docs/romi-robot/index.html).
 
 In your robot project, Hit `F5` or run `Simulate Robot Code on Desktop` from the VSCode Palette (`Ctrl+Shift+P`).
 
