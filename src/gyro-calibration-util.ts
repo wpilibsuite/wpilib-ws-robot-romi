@@ -62,6 +62,10 @@ export default class GyroCalibrationUtil {
             let minZ: number = this._gyro.gyroDPS.z;
             let maxZ: number = this._gyro.gyroDPS.z;
 
+            let totalX: number = 0;
+            let totalY: number = 0;
+            let totalZ: number = 0;
+
             this._calibrationInterval = setInterval(() => {
                 this._gyro.readGyro()
                 .then(() => {
@@ -71,6 +75,10 @@ export default class GyroCalibrationUtil {
                     maxY = Math.max(maxY, this._gyro.gyroDPS.y);
                     minZ = Math.min(minZ, this._gyro.gyroDPS.z);
                     maxX = Math.max(maxZ, this._gyro.gyroDPS.z);
+
+                    totalX += this._gyro.gyroDPS.x;
+                    totalY += this._gyro.gyroDPS.y;
+                    totalZ += this._gyro.gyroDPS.z;
                 });
 
                 this._numSamplesProcessed++;
@@ -78,10 +86,11 @@ export default class GyroCalibrationUtil {
                     clearInterval(this._calibrationInterval);
                     this._state = CalibrationState.IDLE;
 
+                    // Take the average
                     this._lastZeroOffsetValue = {
-                        x: (maxX + minX) / 2,
-                        y: (maxY + minY) / 2,
-                        z: (maxZ + minZ) / 2
+                        x: totalX / this._numSamplesToTake,
+                        y: totalY / this._numSamplesToTake,
+                        z: totalZ / this._numSamplesToTake
                     };
 
                     this._lastNoiseValue = {
