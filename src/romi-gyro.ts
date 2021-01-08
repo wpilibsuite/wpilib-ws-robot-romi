@@ -1,5 +1,9 @@
 import { RobotGyro } from "@wpilib/wpilib-ws-robot";
 import LSM6, { Vector3 } from "./lsm6";
+import SimpleMovingAverage from "./utils/filters/simple-moving-average";
+import StreamFilter from "./utils/filters/stream-filter";
+
+const SMA_WINDOW_SIZE = 5;
 
 export default class RomiGyro extends RobotGyro {
     private _lsm6: LSM6;
@@ -7,10 +11,19 @@ export default class RomiGyro extends RobotGyro {
     private _lastUpdateTimeMs: number = -1;
     private _angle: Vector3 = { x:0, y: 0, z: 0 };
 
+    private readonly _rateXFilter: StreamFilter;
+    private readonly _rateYFilter: StreamFilter;
+    private readonly _rateZFilter: StreamFilter;
+
     constructor(lsm6: LSM6) {
         super("RomiGyro");
 
         this._lsm6 = lsm6;
+
+        // Set up the rate filters
+        this._rateXFilter = new SimpleMovingAverage(SMA_WINDOW_SIZE);
+        this._rateYFilter = new SimpleMovingAverage(SMA_WINDOW_SIZE);
+        this._rateZFilter = new SimpleMovingAverage(SMA_WINDOW_SIZE);
     }
 
     public update(): void {
@@ -25,12 +38,12 @@ export default class RomiGyro extends RobotGyro {
 
         const currGyroValues = this._lsm6.gyroDPS;
 
-        const gyroRateX = currGyroValues.x;
-        const gyroRateY = -currGyroValues.y;
-        const gyroRateZ = -currGyroValues.z;
+        const gyroRateX = this._rateXFilter.getValue(currGyroValues.x);
+        const gyroRateY = this._rateYFilter.getValue(-currGyroValues.y);
+        const gyroRateZ = this._rateZFilter.getValue(-currGyroValues.z);
 
         // Set the rate values
-        this.rateX = gyroRateX
+        this.rateX = gyroRateX;
         this.rateY = gyroRateY;
         this.rateZ = gyroRateZ;
 
