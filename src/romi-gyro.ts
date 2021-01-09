@@ -25,16 +25,20 @@ export default class RomiGyro extends RobotGyro {
 
         const currGyroValues = this._lsm6.gyroDPS;
 
+        const gyroRateX = currGyroValues.x;
+        const gyroRateY = -currGyroValues.y;
+        const gyroRateZ = -currGyroValues.z;
+
         // Set the rate values
-        this.rateX = currGyroValues.x;
-        this.rateY = currGyroValues.y;
-        this.rateZ = currGyroValues.z;
+        this.rateX = gyroRateX
+        this.rateY = gyroRateY;
+        this.rateZ = gyroRateZ;
 
         // Calculate the angles
         const timeDiffInSeconds = (currUpdateTimeMs - this._lastUpdateTimeMs) / 1000;
-        this._angle.x = this._angle.x + (timeDiffInSeconds * currGyroValues.x);
-        this._angle.y = this._angle.y + (timeDiffInSeconds * currGyroValues.y);
-        this._angle.z = this._angle.z + (timeDiffInSeconds * currGyroValues.z);
+        this._angle.x = this._angle.x + (timeDiffInSeconds * gyroRateX);
+        this._angle.y = this._angle.y + (timeDiffInSeconds * gyroRateY);
+        this._angle.z = this._angle.z + (timeDiffInSeconds * gyroRateZ);
 
         // Set the angles
         this.angleX = this._angle.x;

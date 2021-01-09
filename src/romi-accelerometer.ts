@@ -32,7 +32,8 @@ export default class RomiAccelerometer extends RobotAccelerometer {
     }
 
     public update(): void {
-        this.accelX = this._lsm6.accelerationG.x;
+        // These follow NED conventions
+        this.accelX = -this._lsm6.accelerationG.x;
         this.accelY = this._lsm6.accelerationG.y;
         this.accelZ = this._lsm6.accelerationG.z;
     }
