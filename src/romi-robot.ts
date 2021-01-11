@@ -461,6 +461,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         this._numWsConnections++;
 
+        console.log(`[ROMI] New WS Connection from ${remoteAddrV4}`);
         this.emit("wsConnection", {
             remoteAddrV4
         });

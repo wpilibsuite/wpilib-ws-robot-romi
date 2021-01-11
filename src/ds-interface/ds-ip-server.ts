@@ -26,12 +26,14 @@ export default class DSServer {
                 this._ipAddrString = newIp;
                 const addr = new Address4(newIp);
                 const addrArray = addr.toArray();
-                const addrNum = (addrArray[0] << 24) |
-                                (addrArray[1] << 16) |
-                                (addrArray[2] << 8) |
-                                addrArray[3];
-                this._ipAddrNum = addrNum;
+                const addrBuf: Buffer = Buffer.alloc(4);
+                for (let i = 0; i < 4; i++) {
+                    addrBuf[i] = addrArray[i];
+                }
+                this._ipAddrNum = addrBuf.readUInt32BE();
             }
+
+            console.log(`[DS-INTERFACE] Advertised NT Server address updated to: ${this._ipAddrString}`);
 
             this._informAllClients();
         }
@@ -41,6 +43,8 @@ export default class DSServer {
         this._server = new Server((socket) => {
             this._activeSockets.push(socket);
             this._informClient(socket);
+
+            console.log(`[DS-INTERFACE] New DS Server connection. Total number of connections: ${this._activeSockets.length}`);
 
             socket.once("close", (hadError) => {
                 for (let i = 0; i < this._activeSockets.length; i++) {
@@ -54,6 +58,7 @@ export default class DSServer {
         });
 
         this._server.listen(DS_IP_INTERFACE_PORT);
+        console.log(`[DS-INTERFACE] Server Ready on port ${DS_IP_INTERFACE_PORT}`);
     }
 
     public stop() {
@@ -65,6 +70,7 @@ export default class DSServer {
     }
 
     private _informAllClients() {
+        console.log(`[DS-INTERFACE] Informing ${this._activeSockets.length} client(s) of updated NT Server IP`);
         this._activeSockets.forEach(socket => {
             this._informClient(socket);
         });
