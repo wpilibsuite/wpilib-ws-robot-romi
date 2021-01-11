@@ -14,6 +14,7 @@ import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import RestInterface from "./rest-interface/rest-interface";
 import MockRomiImu from "./mocks/mock-imu";
 import GyroCalibrationUtil from "./gyro-calibration-util";
+import DSServer from "./ds-interface/ds-ip-server";
 
 let packageVersion: string = "0.0.0";
 
@@ -186,6 +187,17 @@ restInterface.addIMUStatusQuery("accel-reading", () => {
 
 restInterface.addIMUStatusQuery("gyro-offset", () => {
     return robot.getIMU().gyroOffset;
+});
+
+const dsServer: DSServer = new DSServer();
+dsServer.start();
+
+robot.on("wsConnection", (remoteConnectionInfo) => {
+    dsServer.updateRobotCodeIpV4Addr(remoteConnectionInfo.remoteAddrV4);
+});
+
+robot.on("wsNoConnections", () => {
+    dsServer.updateRobotCodeIpV4Addr(null);
 });
 
 endpoint.startP()

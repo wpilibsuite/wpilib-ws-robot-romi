@@ -451,7 +451,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     /**
      * Called when a new WebSocket connection occurs
      */
-    public onWSConnection(): void {
+    public onWSConnection(remoteAddrV4?: string): void {
         // If this is the first WS connection
         if (this._numWsConnections === 0) {
             // Reset the gyro. This will ensure that the gyro will
@@ -460,6 +460,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         }
 
         this._numWsConnections++;
+
+        this.emit("wsConnection", {
+            remoteAddrV4
+        });
     }
 
     /**
@@ -471,6 +475,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         // If this was our last disconnection, clear out all the state
         if (this._numWsConnections === 0) {
             this._resetToCleanState();
+            this.emit("wsNoConnections");
         }
     }
 
