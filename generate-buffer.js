@@ -105,4 +105,4 @@ tsOutput += "export default Object.freeze(shmemBuffer);\n"
 
 // Write the files
 fs.writeFileSync("./firmware/include/shmem_buffer.h", cppOutput);
-fs.writeFileSync("./src/romi-shmem-buffer.ts", tsOutput);
+fs.writeFileSync("./src/robot/romi-shmem-buffer.ts", tsOutput);
