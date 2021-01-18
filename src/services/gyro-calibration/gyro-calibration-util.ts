@@ -1,4 +1,4 @@
-import LSM6, { Vector3 } from "./lsm6";
+import LSM6, { Vector3 } from "../../robot/devices/lsm6/lsm6";
 
 export enum CalibrationState {
     IDLE = "IDLE",

@@ -1,7 +1,7 @@
 import { RobotGyro } from "@wpilib/wpilib-ws-robot";
-import LSM6, { Vector3 } from "./lsm6";
-import SimpleMovingAverage from "./utils/filters/simple-moving-average";
-import StreamFilter from "./utils/filters/stream-filter";
+import LSM6, { Vector3 } from "./devices/lsm6/lsm6";
+import SimpleMovingAverage from "../utils/filters/simple-moving-average";
+import StreamFilter from "../utils/filters/stream-filter";
 
 const SMA_WINDOW_SIZE = 5;
 

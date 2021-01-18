@@ -1,10 +1,10 @@
 import { WPILibWSRobotBase, DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
-import I2CPromisifiedBus from "./i2c/i2c-connection";
+import I2CPromisifiedBus from "../device-interfaces/i2c/i2c-connection";
 import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
-import I2CErrorDetector from "./i2c-error-detector";
-import LSM6 from "./lsm6";
+import I2CErrorDetector from "../device-interfaces/i2c/i2c-error-detector";
+import LSM6 from "./devices/lsm6/lsm6";
 import RomiConfiguration from "./romi-config";
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";

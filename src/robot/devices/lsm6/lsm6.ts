@@ -1,4 +1,4 @@
-import I2CPromisifiedBus from "./i2c/i2c-connection";
+import I2CPromisifiedBus from "../../../device-interfaces/i2c/i2c-connection";
 
 // LSM6DS33 Datasheet: https://www.pololu.com/file/0J1087/LSM6DS33.pdf
 

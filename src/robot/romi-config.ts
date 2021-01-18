@@ -1,7 +1,7 @@
 import { DEFAULT_IO_CONFIGURATION, IOPinMode, IPinConfiguration, NUM_CONFIGURABLE_PINS } from "./romi-robot";
 import jsonfile from "jsonfile";
-import ProgramArguments from "./program-arguments";
-import { Vector3 } from "./lsm6";
+import ProgramArguments from "../program-arguments";
+import { Vector3 } from "./devices/lsm6/lsm6";
 
 export interface RomiConfigJson {
     ioConfig: string[];

@@ -1,5 +1,5 @@
-import RomiShmemBuffer, { ShmemDataType, ShmemElementDefinition } from "../romi-shmem-buffer";
-import MockI2CDevice from "../i2c/mock-i2c-device";
+import RomiShmemBuffer, { ShmemDataType, ShmemElementDefinition } from "../robot/romi-shmem-buffer";
+import MockI2CDevice from "../device-interfaces/i2c/mock-i2c-device";
 
 function getDataTypeSize(type: ShmemDataType): number {
     switch (type) {

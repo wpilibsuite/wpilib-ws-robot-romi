@@ -1,4 +1,4 @@
-import MockI2CDevice from "../i2c/mock-i2c-device";
+import MockI2CDevice from "../device-interfaces/i2c/mock-i2c-device";
 
 export default class MockRomiImu extends MockI2CDevice {
     public readByte(cmd: number): Promise<number> {

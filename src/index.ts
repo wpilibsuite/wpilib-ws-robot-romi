@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 import fs from "fs";
 import path from "path";
-import WPILibWSRomiRobot from "./romi-robot";
+import WPILibWSRomiRobot from "./robot/romi-robot";
 import { WPILibWSRobotEndpoint, WPILibWSServerConfig, WPILibWSClientConfig } from "@wpilib/wpilib-ws-robot";
-import MockI2C from "./i2c/mock-i2c";
-import I2CPromisifiedBus from "./i2c/i2c-connection";
+import MockI2C from "./device-interfaces/i2c/mock-i2c";
+import I2CPromisifiedBus from "./device-interfaces/i2c/i2c-connection";
 import program from "commander";
 import ServiceConfiguration, { EndpointType } from "./service-config";
-import RomiConfiguration from "./romi-config";
+import RomiConfiguration from "./robot/romi-config";
 import ProgramArguments from "./program-arguments";
-import MockRomiI2C from "./mocks/mock-romi";
-import { FIRMWARE_IDENT } from "./romi-shmem-buffer";
-import RestInterface from "./rest-interface/rest-interface";
-import MockRomiImu from "./mocks/mock-imu";
-import GyroCalibrationUtil from "./gyro-calibration-util";
-import DSServer from "./ds-interface/ds-ip-server";
+import MockRomiI2C from "./__mocks__/mock-romi";
+import { FIRMWARE_IDENT } from "./robot/romi-shmem-buffer";
+import RestInterface from "./services/rest-interface/rest-interface";
+import MockRomiImu from "./__mocks__/mock-imu";
+import GyroCalibrationUtil from "./services/gyro-calibration/gyro-calibration-util";
+import DSServer from "./services/ds-interface/ds-ip-server";
 
 let packageVersion: string = "0.0.0";
 
@@ -77,7 +77,7 @@ let endpoint: WPILibWSRobotEndpoint;
 
 if (!serviceConfig.forceMockI2C) {
     try {
-        const HardwareI2C = require("./i2c/hw-i2c").default;
+        const HardwareI2C = require("./device-interfaces/i2c/hw-i2c").default;
         i2cBus = new HardwareI2C(I2C_BUS_NUM);
     }
     catch (err) {
