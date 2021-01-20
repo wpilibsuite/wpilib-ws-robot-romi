@@ -4,7 +4,7 @@ import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import I2CErrorDetector from "../device-interfaces/i2c/i2c-error-detector";
-import LSM6 from "./devices/lsm6/lsm6";
+import LSM6 from "./devices/core/lsm6/lsm6";
 import RomiConfiguration from "./romi-config";
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
