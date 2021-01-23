@@ -15,6 +15,7 @@ import RestInterface from "./services/rest-interface/rest-interface";
 import MockRomiImu from "./__mocks__/mock-imu";
 import GyroCalibrationUtil from "./services/gyro-calibration/gyro-calibration-util";
 import DSServer from "./services/ds-interface/ds-ip-server";
+import QueuedI2CBus from "./device-interfaces/i2c/queued-i2c-bus";
 
 let packageVersion: string = "0.0.0";
 
@@ -106,7 +107,10 @@ else {
 
 console.log(`[CONFIG] External Pins: ${romiConfig.pinConfigurationString}`);
 
-const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14, romiConfig);
+// Set up the queued bus
+const queuedI2CBus: QueuedI2CBus =  new QueuedI2CBus(i2cBus);
+
+const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(queuedI2CBus, 0x14, romiConfig);
 
 if (serviceConfig.endpointType === EndpointType.SERVER) {
     const serverSettings: WPILibWSServerConfig = {
