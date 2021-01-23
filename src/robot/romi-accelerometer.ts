@@ -1,5 +1,5 @@
 import { RobotAccelerometer } from "@wpilib/wpilib-ws-robot";
-import LSM6, { AccelerometerScale } from "./devices/lsm6/lsm6";
+import LSM6, { AccelerometerScale } from "./devices/core/lsm6/lsm6";
 
 export default class RomiAccelerometer extends RobotAccelerometer {
     private _sensitivity: AccelerometerScale;
