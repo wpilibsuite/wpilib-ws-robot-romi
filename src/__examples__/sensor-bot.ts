@@ -3,6 +3,7 @@ import I2CPromisifiedBus from "../device-interfaces/i2c/i2c-connection";
 import WPILibWSRomiRobot, { IOPinMode, IPinConfiguration } from "../robot/romi-robot";
 import { DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
 import RomiConfiguration from "../robot/romi-config";
+import QueuedI2CBus from "../device-interfaces/i2c/queued-i2c-bus";
 
 let hardwareConfig: IPinConfiguration[] = [
     { pinNumber: 11, mode: IOPinMode.DIO },
@@ -29,7 +30,9 @@ catch (err) {
     i2cBus = new MockI2C(I2C_BUS_NUM);
 }
 
-const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(i2cBus, 0x14, romiConfig);
+const queuedI2CBus: QueuedI2CBus = new QueuedI2CBus(i2cBus);
+
+const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(queuedI2CBus, 0x14, romiConfig);
 
 setTimeout(() => {
     console.log("READY");

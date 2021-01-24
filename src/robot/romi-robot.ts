@@ -1,6 +1,5 @@
 import { WPILibWSRobotBase, DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
 import I2CPromisifiedBus from "../device-interfaces/i2c/i2c-connection";
-import PromiseQueue from "promise-queue";
 
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import I2CErrorDetector from "../device-interfaces/i2c/i2c-error-detector";
@@ -8,6 +7,7 @@ import LSM6 from "./devices/core/lsm6/lsm6";
 import RomiConfiguration from "./romi-config";
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
+import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -56,14 +56,13 @@ export const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
 export const NUM_CONFIGURABLE_PINS: number = 5;
 
 export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
-    private _i2cBus: I2CPromisifiedBus;
-    private _i2cAddress: number;
+    private _queuedBus: QueuedI2CBus;
+    private _i2cHandle: QueuedI2CHandle;
 
     private _firmwareIdent: number = -1;
 
     private _batteryPct: number = 0;
 
-    private _i2cQueue: PromiseQueue = new PromiseQueue(1);
     private _heartbeatTimer: NodeJS.Timeout;
     private _readTimer: NodeJS.Timeout;
 
@@ -96,14 +95,15 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
-    constructor(bus: I2CPromisifiedBus, address: number, romiConfig?: RomiConfiguration) {
+    constructor(bus: QueuedI2CBus, address: number, romiConfig?: RomiConfiguration) {
         super();
 
-        this._i2cBus = bus;
-        this._i2cAddress = address;
+        // By default, we'll use a queued I2C bus
+        this._queuedBus = bus;
+        this._i2cHandle = this._queuedBus.getNewAddressedHandle(address, true);
 
         // Set up the LSM6DS33 (and associated Romi IMU devices-s)
-        this._lsm6 = new LSM6(this._i2cBus, 0x6B);
+        this._lsm6 = new LSM6(this._queuedBus.rawBus, 0x6B);
         this._romiAccelerometer = new RomiAccelerometer(this._lsm6);
         this._romiGyro = new RomiGyro(this._lsm6);
 
@@ -159,7 +159,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
                 // Set up the heartbeat
                 this._heartbeatTimer = setInterval(() => {
-                    this._writeByte(RomiDataBuffer.heartbeat.offset, 1)
+                    this._i2cHandle.writeByte(RomiDataBuffer.heartbeat.offset, 1)
                     .catch(err => {
                         this._i2cErrorDetector.addErrorInstance();
                     });
@@ -184,7 +184,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
                 // Set up the status check
                 setInterval(() => {
-                    this._readByte(RomiDataBuffer.status.offset)
+                    this._i2cHandle.readByte(RomiDataBuffer.status.offset)
                     .then(val => {
                         if (val === 0) {
                             console.log("[ROMI] Status byte is 0. Assuming brown out. Rewriting IO config");
@@ -284,7 +284,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     public setDIOValue(channel: number, value: boolean): void {
         if (channel < 4) {
             // Use the built in DIO
-            this._writeByte(RomiDataBuffer.builtinDioValues.offset + channel, value ? 1 : 0)
+            this._i2cHandle.writeByte(RomiDataBuffer.builtinDioValues.offset + channel, value ? 1 : 0)
             .catch(err => {
                 this._i2cErrorDetector.addErrorInstance();
             });
@@ -294,7 +294,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             const extDioIdx = channel - 8;
             if (this._extDioPins[extDioIdx] !== undefined) {
                 const ioIdx = this._extDioPins[extDioIdx];
-                this._writeByte(RomiDataBuffer.extIoValues.offset + (ioIdx * 2), value ? 1 : 0)
+                this._i2cHandle.writeByte(RomiDataBuffer.extIoValues.offset + (ioIdx * 2), value ? 1 : 0)
                 .catch(err => {
                     this._i2cErrorDetector.addErrorInstance();
                 });
@@ -350,7 +350,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 const ioIdx = this._extPwmPins[pwmIoIdx];
                 offset = RomiDataBuffer.extIoValues.offset + (ioIdx * 2);
             }
-            this._writeWord(offset, tmp.readUInt16BE())
+            this._i2cHandle.writeWord(offset, tmp.readUInt16BE())
             .catch(err => {
                 this._i2cErrorDetector.addErrorInstance();
             });
@@ -435,7 +435,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             encoderInfo.reportedValue = 0;
         }
 
-        this._writeByte(offset, 1)
+        this._i2cHandle.writeByte(offset, 1)
         .catch(err => {
             this._i2cErrorDetector.addErrorInstance();
         });
@@ -481,7 +481,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public async queryFirmwareIdent(): Promise<number> {
-        return this._readByte(RomiDataBuffer.firmwareIdent.offset)
+        return this._i2cHandle.readByte(RomiDataBuffer.firmwareIdent.offset)
         .then(fwIdent => {
             this._firmwareIdent = fwIdent;
             return fwIdent;
@@ -490,44 +490,6 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             this._i2cErrorDetector.addErrorInstance();
             this._firmwareIdent = -1;
             return -1;
-        });
-    }
-
-    protected async _readByte(cmd: number): Promise<number> {
-        return this._i2cQueue.add(() => {
-            return this._i2cBus.readByte(this._i2cAddress, cmd, true);
-        });
-    }
-
-    protected async _readWord(cmd: number): Promise<number> {
-        return this._i2cQueue.add(() => {
-            return this._i2cBus.readWord(this._i2cAddress, cmd, true);
-        });
-    }
-
-    protected async _writeByte(cmd: number, byte: number, delayMs: number = 0): Promise<void> {
-        return this._i2cQueue.add(() => {
-            return this._i2cBus.writeByte(this._i2cAddress, cmd, byte)
-            .then(() => {
-                return new Promise(resolve => {
-                    setTimeout(() =>{
-                        resolve();
-                    }, delayMs);
-                });
-            });
-        });
-    }
-
-    protected async _writeWord(cmd: number, word: number, delayMs: number = 0): Promise<void> {
-        return this._i2cQueue.add(() => {
-            return this._i2cBus.writeWord(this._i2cAddress, cmd, word)
-            .then(() => {
-                return new Promise(resolve => {
-                    setTimeout(() =>{
-                        resolve();
-                    }, delayMs);
-                });
-            });
         });
     }
 
@@ -593,7 +555,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             configRegister |= pinModeConfig;
         });
 
-        return this._writeByte(RomiDataBuffer.builtinConfig.offset, configRegister, 3)
+        return this._i2cHandle.writeByte(RomiDataBuffer.builtinConfig.offset, configRegister, 3)
         .catch(err => {
             this._i2cErrorDetector.addErrorInstance();
         });
@@ -610,7 +572,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             configRegister |= pinModeConfig;
         });
 
-        return this._writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3)
+        return this._i2cHandle.writeWord(RomiDataBuffer.ioConfig.offset, configRegister, 3)
         .catch(err => {
             this._i2cErrorDetector.addErrorInstance();
         });
@@ -620,7 +582,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         // Loop through the _extAnalogInPins to find the index we want
         this._extAnalogInPins.forEach((extIoIdx, ainIdx) => {
             const offset = RomiDataBuffer.extIoValues.offset + (extIoIdx * 2);
-            this._readWord(offset)
+            this._i2cHandle.readWord(offset)
             .then(adcVal => {
                 // The value sent over the wire is a 10-bit ADC value
                 // We'll need to convert it to 5V
@@ -655,7 +617,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 return;
             }
 
-            this._readByte(offset)
+            this._i2cHandle.readByte(offset)
             .then(value => {
                 this._digitalInputValues.set(channel, value !== 0);
             })
@@ -680,7 +642,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 return;
             }
 
-            this._readWord(offset)
+            this._i2cHandle.readWord(offset)
             .then(encoderValue => {
                 // This comes in as a uint16_t
                 const buf = Buffer.alloc(2);
@@ -727,7 +689,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     private _readBattery(): void {
-        this._readWord(RomiDataBuffer.batteryMillivolts.offset)
+        this._i2cHandle.readWord(RomiDataBuffer.batteryMillivolts.offset)
         .then(battMv => {
             this._batteryPct = battMv / 9000;
         })
