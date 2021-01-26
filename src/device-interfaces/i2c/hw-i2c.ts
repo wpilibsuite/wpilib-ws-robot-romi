@@ -23,7 +23,7 @@ export default class HardwareI2C extends I2CPromisifiedBus {
                 // For reading, we need to send a write at the
                 // address that we want, wait a little, and then
                 // receive a byte
-                return bus.writeByte(addr, cmd, 0)
+                return bus.sendByte(addr, cmd)
                 .then(() => this._postWriteDelay())
                 .then(() => {
                     return bus.receiveByte(addr);
@@ -44,16 +44,21 @@ export default class HardwareI2C extends I2CPromisifiedBus {
 
     public readWord(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
         const buf = Buffer.alloc(2);
-        return this.readByte(addr, cmd, romiMode)
-        .then(lsb => {
-            buf[0] = lsb;
-        })
-        .then(() => {
-            return this.readByte(addr, cmd + 1, romiMode);
-        })
-        .then(msb => {
-            buf[1] = msb;
-            return buf.readUInt16LE();
+
+        return this._i2cBusP
+        .then(bus => {
+            if (romiMode) {
+                return bus.sendByte(addr, cmd)
+                .then(async () => {
+                    buf[0] = await bus.receiveByte(addr);
+                    buf[1] = await bus.receiveByte(addr);
+
+                    return buf.readUInt16LE();
+                });
+            }
+            else {
+                return bus.readWord(addr, cmd);
+            }
         });
     }
 
