@@ -1,10 +1,9 @@
 import { WPILibWSRobotBase, DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
-import I2CPromisifiedBus from "../device-interfaces/i2c/i2c-connection";
 
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import I2CErrorDetector from "../device-interfaces/i2c/i2c-error-detector";
 import LSM6 from "./devices/core/lsm6/lsm6";
-import RomiConfiguration from "./romi-config";
+import RomiConfiguration, { DEFAULT_IO_CONFIGURATION, IOPinMode, PinCapability, PinConfiguration } from "./romi-config";
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
 import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
@@ -18,39 +17,13 @@ interface IEncoderInfo {
     lastReportedTime?: number;
 }
 
-export enum IOPinMode {
-    DIO = "dio",
-    ANALOG_IN = "ain",
-    PWM = "pwm"
-}
-
-export interface IPinConfiguration {
-    pinNumber: number;
-    analogChannel?: number;
-    mode: IOPinMode
-}
-
-interface IPinCapability {
-    pinNumber: number;
-    analogChannel?: number;
-    supportedModes: IOPinMode[];
-}
-
 // Supported modes for the Romi pins
-const IO_CAPABILITIES: IPinCapability[] = [
-    { pinNumber: 11, supportedModes: [IOPinMode.DIO, IOPinMode.PWM] },
-    { pinNumber: 4, analogChannel: 6, supportedModes: [IOPinMode.DIO, IOPinMode.ANALOG_IN, IOPinMode.PWM] },
-    { pinNumber: 20, analogChannel: 2, supportedModes: [IOPinMode.DIO, IOPinMode.ANALOG_IN, IOPinMode.PWM] },
-    { pinNumber: 21, analogChannel: 3, supportedModes: [IOPinMode.DIO, IOPinMode.ANALOG_IN, IOPinMode.PWM] },
-    { pinNumber: 22, analogChannel: 4, supportedModes: [IOPinMode.DIO, IOPinMode.ANALOG_IN, IOPinMode.PWM] },
-];
-
-export const DEFAULT_IO_CONFIGURATION: IPinConfiguration[] = [
-    { pinNumber: 11, mode: IOPinMode.DIO },
-    { pinNumber: 4, analogChannel: 6, mode: IOPinMode.ANALOG_IN },
-    { pinNumber: 20, analogChannel: 2, mode: IOPinMode.ANALOG_IN },
-    { pinNumber: 21, analogChannel: 3, mode: IOPinMode.PWM },
-    { pinNumber: 22, analogChannel: 4, mode: IOPinMode.PWM }
+const IO_CAPABILITIES: PinCapability[] = [
+    { supportedModes: [IOPinMode.DIO, IOPinMode.PWM] },
+    { supportedModes: [IOPinMode.DIO, IOPinMode.PWM, IOPinMode.ANALOG_IN] },
+    { supportedModes: [IOPinMode.DIO, IOPinMode.PWM, IOPinMode.ANALOG_IN] },
+    { supportedModes: [IOPinMode.DIO, IOPinMode.PWM, IOPinMode.ANALOG_IN] },
+    { supportedModes: [IOPinMode.DIO, IOPinMode.PWM, IOPinMode.ANALOG_IN] },
 ];
 
 export const NUM_CONFIGURABLE_PINS: number = 5;
@@ -74,7 +47,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _leftEncoderChannel: number = -1;
     private _rightEncoderChannel: number = -1;
 
-    private _ioConfiguration: IPinConfiguration[] = DEFAULT_IO_CONFIGURATION;
+    private _ioConfiguration: PinConfiguration[] = DEFAULT_IO_CONFIGURATION;
     private _extDioPins: number[] = []; // Index maps to a DIO channel of (8 + idx). Value is the IO pin index
     private _extAnalogInPins: number[] = []; // Idx maps to Analog In channel of idx. Value is IO pin index
     private _extPwmPins: number[] = []; // Idx maps to PWM channel of (2 + idx). Value is the IO pin index
@@ -496,7 +469,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         });
     }
 
-    private _verifyConfiguration(config: IPinConfiguration[]): boolean {
+    private _verifyConfiguration(config: PinConfiguration[]): boolean {
         if (config.length !== IO_CAPABILITIES.length) {
             console.log(`[ROMI] Incorrect number of pin config options. Expected ${IO_CAPABILITIES.length} but got ${config.length}`);
             return false;
