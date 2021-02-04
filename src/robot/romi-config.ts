@@ -1,4 +1,4 @@
-import { DEFAULT_IO_CONFIGURATION, IOPinMode, IPinConfiguration, NUM_CONFIGURABLE_PINS } from "./romi-robot";
+import { NUM_CONFIGURABLE_PINS } from "./romi-robot";
 import jsonfile from "jsonfile";
 import ProgramArguments from "../program-arguments";
 import { Vector3 } from "./devices/core/lsm6/lsm6";
@@ -8,8 +8,30 @@ export interface RomiConfigJson {
     gyroZeroOffset: Vector3;
 }
 
+export enum IOPinMode {
+    DIO = "dio",
+    ANALOG_IN = "ain",
+    PWM = "pwm"
+}
+
+export interface PinConfiguration {
+    mode: IOPinMode;
+}
+
+export interface PinCapability {
+    supportedModes: IOPinMode[];
+}
+
+export const DEFAULT_IO_CONFIGURATION: PinConfiguration[] = [
+    { mode: IOPinMode.DIO },
+    { mode: IOPinMode.ANALOG_IN },
+    { mode: IOPinMode.ANALOG_IN },
+    { mode: IOPinMode.PWM },
+    { mode: IOPinMode.PWM }
+];
+
 export default class RomiConfiguration {
-    private _extIOConfig: IPinConfiguration[] = [];
+    private _extIOConfig: PinConfiguration[] = [];
     private _gyroZeroOffset: Vector3 = { x: 0, y: 0, z: 0};
 
     constructor(programArgs?: ProgramArguments) {
@@ -80,11 +102,11 @@ export default class RomiConfiguration {
         }
     }
 
-    public get externalIOConfig(): IPinConfiguration[] {
+    public get externalIOConfig(): PinConfiguration[] {
         return this._extIOConfig;
     }
 
-    public set externalIOConfig(val: IPinConfiguration[]) {
+    public set externalIOConfig(val: PinConfiguration[]) {
         this._extIOConfig = val;
     }
 

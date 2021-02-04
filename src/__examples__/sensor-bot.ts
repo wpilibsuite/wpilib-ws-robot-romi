@@ -1,16 +1,16 @@
 import MockI2C from "../device-interfaces/i2c/mock-i2c";
 import I2CPromisifiedBus from "../device-interfaces/i2c/i2c-connection";
-import WPILibWSRomiRobot, { IOPinMode, IPinConfiguration } from "../robot/romi-robot";
+import WPILibWSRomiRobot from "../robot/romi-robot";
 import { DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
-import RomiConfiguration from "../robot/romi-config";
+import RomiConfiguration, { IOPinMode, PinConfiguration } from "../robot/romi-config";
 import QueuedI2CBus from "../device-interfaces/i2c/queued-i2c-bus";
 
-let hardwareConfig: IPinConfiguration[] = [
-    { pinNumber: 11, mode: IOPinMode.DIO },
-    { pinNumber: 4, analogChannel: 6, mode: IOPinMode.DIO },
-    { pinNumber: 20, analogChannel: 2, mode: IOPinMode.ANALOG_IN },
-    { pinNumber: 21, analogChannel: 3, mode: IOPinMode.ANALOG_IN },
-    { pinNumber: 22, analogChannel: 4, mode: IOPinMode.ANALOG_IN }
+let hardwareConfig: PinConfiguration[] = [
+    { mode: IOPinMode.DIO },
+    { mode: IOPinMode.DIO },
+    { mode: IOPinMode.ANALOG_IN },
+    { mode: IOPinMode.ANALOG_IN },
+    { mode: IOPinMode.ANALOG_IN },
 ];
 
 const romiConfig: RomiConfiguration = new RomiConfiguration();
