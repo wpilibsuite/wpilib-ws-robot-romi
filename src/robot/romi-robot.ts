@@ -66,6 +66,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     // Keep track of the number of active WS connections
     private _numWsConnections: number = 0;
 
+    // Keep track of whether or not the robot is DS enabled/disabled
+    private _dsEnabled: boolean = false;
+
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
     constructor(bus: QueuedI2CBus, address: number, romiConfig?: RomiConfiguration) {
@@ -133,7 +136,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 // Set up the heartbeat. Only send the heartbeat if we have
                 // an active WS connection
                 this._heartbeatTimer = setInterval(() => {
-                    if (this._numWsConnections > 0) {
+                    if (this._numWsConnections > 0 && this._dsEnabled) {
                         this._i2cHandle.writeByte(RomiDataBuffer.heartbeat.offset, 1)
                         .catch(err => {
                             this._i2cErrorDetector.addErrorInstance();
@@ -456,6 +459,16 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         }
     }
 
+    public onRobotEnabled(): void {
+        console.log("[ROMI] Robot ENABLED");
+        this._dsEnabled = true;
+    }
+
+    public onRobotDisabled(): void {
+        console.log("[ROMI] Robot DISABLED");
+        this._dsEnabled = false;
+    }
+
     public async queryFirmwareIdent(): Promise<number> {
         return this._i2cHandle.readByte(RomiDataBuffer.firmwareIdent.offset)
         .then(fwIdent => {
@@ -688,5 +701,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         // Set up DIO 0 as an input because it's a button
         this._digitalInputValues.set(0, false);
+
+        // Reset our ds enabled state
+        this._dsEnabled = false;
     }
 }
