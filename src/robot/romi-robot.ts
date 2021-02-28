@@ -38,6 +38,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _heartbeatTimer: NodeJS.Timeout;
     private _readTimer: NodeJS.Timeout;
+    private _gyroReadTimer: NodeJS.Timeout;
 
     private _digitalInputValues: Map<number, boolean> = new Map<number, boolean>();
     private _analogInputValues: Map<number, number> = new Map<number, number>();
@@ -155,15 +156,16 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._bulkEncoderRead();
 
                     this._readBattery();
+                }, 50);
 
-                    // Read IMU
+                // Set up the IMU read timer
+                this._gyroReadTimer = setInterval(() => {
                     this._lsm6.readAccelerometer();
                     this._lsm6.readGyro();
 
-                    // Update the SimDevices
                     this._romiAccelerometer.update();
                     this._romiGyro.update();
-                }, 50);
+                }, 20);
 
                 // Set up the status check
                 setInterval(() => {
