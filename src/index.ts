@@ -16,6 +16,8 @@ import MockRomiImu from "./__mocks__/mock-imu";
 import GyroCalibrationUtil from "./services/gyro-calibration/gyro-calibration-util";
 import DSServer from "./services/ds-interface/ds-ip-server";
 import QueuedI2CBus from "./device-interfaces/i2c/queued-i2c-bus";
+import { NetworkTableInstance, NetworkTable, LogSeverity } from "node-ntcore";
+import { execSync } from "child_process";
 
 let packageVersion: string = "0.0.0";
 
@@ -110,6 +112,48 @@ console.log(`[CONFIG] External Pins: ${romiConfig.pinConfigurationString}`);
 // Set up the queued bus
 const queuedI2CBus: QueuedI2CBus =  new QueuedI2CBus(i2cBus);
 
+// Set up network tables
+let ntConnected = false;
+const ntInstance: NetworkTableInstance = NetworkTableInstance.getDefault();
+ntInstance.setNetworkIdentity("romi-nt-client");
+
+// Set default log level
+ntInstance.logSeverity = LogSeverity.INFO;
+
+const romiTable = ntInstance.getTable("/Romi");
+const romiInfoTable = romiTable.getSubTable("Information");
+const romiStatusTable = romiTable.getSubTable("Status");
+
+// Broadcast Romi information
+
+// Get the CPU Serial number, similar to how the default SSID is obtained
+let piIdent: string = "WPILibPi-UNKNOWN";
+
+try {
+    const piIdentBuf = execSync("grep ^Serial /proc/cpuinfo | cut -d ':' -f 2 | cut -c 10-");
+    const identString = piIdentBuf.toString();
+
+    if (identString !== "") {
+        piIdent = "WPILibPi-" + identString;
+    }
+}
+catch (err) {}
+
+// Populate the Romi/Information group
+romiInfoTable.getEntry("Identifier").setString(piIdent);
+romiInfoTable.getEntry("Service Version").setString(packageVersion);
+
+const ioConfig: string[] = romiConfig.externalIOConfig.map(val => {
+    return (val.mode as string);
+});
+romiInfoTable.getEntry("IO Config").setStringArray(ioConfig);
+
+// Periodic status updates to /Romi/Status
+setInterval(() => {
+    romiStatusTable.getEntry("Battery Voltage").setDouble(robot.getBatteryPercentage() * 9.0);
+
+}, 1000);
+
 const robot: WPILibWSRomiRobot = new WPILibWSRomiRobot(queuedI2CBus, 0x14, romiConfig);
 
 if (serviceConfig.endpointType === EndpointType.SERVER) {
@@ -198,10 +242,24 @@ dsServer.start();
 
 robot.on("wsConnection", (remoteConnectionInfo) => {
     dsServer.updateRobotCodeIpV4Addr(remoteConnectionInfo.remoteAddrV4);
+
+    // Update the NT client to point to the new IP
+    ntInstance.setServer(remoteConnectionInfo.remoteAddrV4);
+    if (!ntConnected) {
+        console.log("[NT] Starting Client");
+        ntInstance.startClient(remoteConnectionInfo.remoteAddrV4);
+        ntConnected = true;
+    }
 });
 
 robot.on("wsNoConnections", () => {
     dsServer.updateRobotCodeIpV4Addr(null);
+
+    // if (ntConnected) {
+    //     console.log("[NT] Stopping Client");
+    //     ntInstance.stopClient();
+    //     ntConnected = false;
+    // }
 });
 
 endpoint.startP()
