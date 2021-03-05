@@ -7,6 +7,7 @@ import RomiConfiguration, { DEFAULT_IO_CONFIGURATION, IOPinMode, PinCapability, 
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
 import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
+import { NetworkTableInstance, NetworkTable, EntryListenerFlags } from "node-ntcore";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -73,10 +74,17 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     // Keep track of the DS heartbeat
     private _dsHeartbeatPresent: boolean = false;
 
+    private _statusNetworkTable: NetworkTable;
+    private _configNetworkTable: NetworkTable;
+
     // Take in the abstract bus, since this will allow us to
     // write unit tests more easily
     constructor(bus: QueuedI2CBus, address: number, romiConfig?: RomiConfiguration) {
         super();
+
+        const ntInstance = NetworkTableInstance.getDefault();
+        this._statusNetworkTable = ntInstance.getTable("/Romi/Status");
+        this._configNetworkTable = ntInstance.getTable("/Romi/Config");
 
         // By default, we'll use a queued I2C bus
         this._queuedBus = bus;
@@ -105,6 +113,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 this._lsm6.gyroOffset = romiConfig.gyroZeroOffset;
             }
         }
+
+        // Set up NT interfaces
+        this._configureNTInterface();
 
         // Set up the ready indicator
         this._readyP =
@@ -720,5 +731,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         // Reset our ds enabled state
         this._dsEnabled = false;
+    }
+
+    private _configureNTInterface() {
+        // TODO This sets up any NT "API"s that we need
     }
 }

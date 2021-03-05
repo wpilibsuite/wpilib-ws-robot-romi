@@ -55,6 +55,10 @@ export default class DSServer {
                     }
                 }
             });
+
+            socket.on("error", (err) => {
+                console.log("[DS-INTERFACE] Socket Error: ", err);
+            });
         });
 
         this._server.listen(DS_IP_INTERFACE_PORT);
