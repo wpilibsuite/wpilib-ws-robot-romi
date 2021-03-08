@@ -1,3 +1,6 @@
+import winston from "winston";
+import LogUtil from "../../utils/logging/log-util";
+
 // Keep track of IO errors
 // General idea is that we have some threshold number of errors
 // that can occur in a given window. e.g. 5 errors in a 30 second
@@ -13,10 +16,15 @@ export default class I2CErrorDetector {
 
     private _errorQueue: {timestamp: number, count: number}[] = [];
 
-    constructor(errorThreshold: number, windowMs: number, checkInterval: number) {
+    private _logger: winston.Logger;
+
+    constructor(errorThreshold: number, windowMs: number, checkInterval: number, label: string = "default") {
         this._errorThreshold = errorThreshold;
         this._windowMs = windowMs;
         this._checkIntervalMs = checkInterval;
+
+        this._logger = LogUtil.getLogger(`I2C-ERRDETECT-${label}`);
+        this._logger.info(`Thresh=${errorThreshold}, Window=${windowMs}, CheckInterval=${checkInterval}`);
 
         setInterval(() => {
             this._checkQueue();
@@ -57,7 +65,7 @@ export default class I2CErrorDetector {
             if (currTimestamp - this._errorQueue[this._errorQueue.length - 1].timestamp > this._windowMs) {
                 this._errorQueue.length = 0; // Clear the queue
                 if (this._isErrorState) {
-                    console.log(`[I2C] Clearing Error State - Latest error reported lies outside of window(${this._windowMs}ms)`);
+                    this._logger.info(`Clearing Error State - Latest error reported lies outside of window(${this._windowMs}ms)`);
                 }
                 this._isErrorState = false;
             }
@@ -73,13 +81,13 @@ export default class I2CErrorDetector {
 
                 if (errorCount > this._errorThreshold) {
                     if (!this._isErrorState) {
-                        console.log("[I2C] Setting Error State");
+                        this._logger.info("Setting Error State");
                     }
                     this._isErrorState = true;
                 }
                 else {
                     if (this._isErrorState) {
-                        console.log(`[I2C] Clearing Error State - Num Errors(${errorCount}) in window (${this._windowMs}ms) is below threshold (${this._errorThreshold}))`);
+                        this._logger.info(`Clearing Error State - Num Errors(${errorCount}) in window (${this._windowMs}ms) is below threshold (${this._errorThreshold}))`);
                     }
                     this._isErrorState = false;
                 }
@@ -87,7 +95,7 @@ export default class I2CErrorDetector {
         }
         else {
             if (this._isErrorState) {
-                console.log("[I2C] Clearing Error State - No recently reported errors");
+                this._logger.info("Clearing Error State - No recently reported errors");
             }
             this._isErrorState = false;
         }

@@ -1,8 +1,11 @@
 import express, {Request, Response} from "express";
 import cors from "cors";
 import { Server } from "http";
+import LogUtil from "../../utils/logging/log-util";
 
 const DEFAULT_PORT: number = 9001;
+
+const logger = LogUtil.getLogger("SVC-REST");
 
 export interface RestInterfaceConfig {
     port?: number;
@@ -104,13 +107,13 @@ export default class RestInterface {
 
     public start() {
         this._server = this._app.listen(this._port, () => {
-            console.log(`[REST-INTERFACE] Server listening on port ${this._port}`);
+            logger.info(`Server listening on port ${this._port}`);
         });
     }
 
     public stop() {
         if (this._server) {
-            console.log("[REST-INTERFACE] Server Closing");
+            logger.info("Server Closing");
             this._server.close();
             this._server = undefined;
         }

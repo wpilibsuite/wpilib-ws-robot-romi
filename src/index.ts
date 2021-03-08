@@ -16,8 +16,15 @@ import MockRomiImu from "./__mocks__/mock-imu";
 import GyroCalibrationUtil from "./services/gyro-calibration/gyro-calibration-util";
 import DSServer from "./services/ds-interface/ds-ip-server";
 import QueuedI2CBus from "./device-interfaces/i2c/queued-i2c-bus";
-import { NetworkTableInstance, NetworkTable, LogSeverity } from "node-ntcore";
+import { NetworkTableInstance } from "node-ntcore";
 import { execSync } from "child_process";
+import LogUtil, { LogLevel } from "./utils/logging/log-util";
+
+// INITIAL SETUP
+const mainLogger = LogUtil.getLogger("MAIN");
+const configLogger = LogUtil.getLogger("CONFIG");
+const restLogger = LogUtil.getLogger("SVC-REST");
+const i2cLogger = LogUtil.getLogger("I2C");
 
 let packageVersion: string = "0.0.0";
 
@@ -32,7 +39,8 @@ try {
     }
 }
 catch (e) {
-    console.error("Error reading package.json: ", e);
+    mainLogger.error("Error reading package.json: " + e.message);
+    mainLogger.error(e.stack);
 }
 
 // Set up command line options
@@ -49,7 +57,7 @@ program
 
 program.parse(process.argv);
 
-console.log(`Version: ${packageVersion}`);
+mainLogger.info(`Version: ${packageVersion}`);
 
 let serviceConfig: ServiceConfiguration;
 let romiConfig: RomiConfiguration;
@@ -58,7 +66,7 @@ try {
     serviceConfig = new ServiceConfiguration(program as ProgramArguments);
 }
 catch (err) {
-    console.log(err.message);
+    mainLogger.error(err.message);
     process.exit();
 }
 
@@ -67,9 +75,9 @@ try {
 }
 catch (err) {
     romiConfig = new RomiConfiguration();
-    console.log("[CONFIG] Error loading romi configuration")
-    console.log(err.message);
-    console.log("[CONFIG] Falling back to defaults");
+    configLogger.warn("Error loading Romi configuration");
+    configLogger.warn(err.message);
+    configLogger.warn("Falling back to defaults");
 }
 
 const I2C_BUS_NUM: number = 1;
@@ -84,8 +92,8 @@ if (!serviceConfig.forceMockI2C) {
         i2cBus = new HardwareI2C(I2C_BUS_NUM);
     }
     catch (err) {
-        console.log("[I2C] Error creating hardware I2C: ", err.message);
-        console.log("[I2C] Falling back to MockI2C");
+        i2cLogger.warn("Error creating hardware I2C: " + err.message);
+        i2cLogger.warn("Falling back to MockI2C");
         i2cBus = new MockI2C(I2C_BUS_NUM);
 
         const mockRomi: MockRomiI2C = new MockRomiI2C(0x14);
@@ -97,7 +105,7 @@ if (!serviceConfig.forceMockI2C) {
     }
 }
 else {
-    console.log("[I2C] Requested to use mock I2C");
+    i2cLogger.info("Requested to use mock I2C");
     i2cBus = new MockI2C(I2C_BUS_NUM);
     const mockRomi: MockRomiI2C = new MockRomiI2C(0x14);
     mockRomi.setFirmwareIdent(FIRMWARE_IDENT);
@@ -107,7 +115,7 @@ else {
     (i2cBus as MockI2C).addDeviceToBus(mockImu);
 }
 
-console.log(`[CONFIG] External Pins: ${romiConfig.pinConfigurationString}`);
+configLogger.info(`External Pins: ${romiConfig.pinConfigurationString}`);
 
 // Set up the queued bus
 const queuedI2CBus: QueuedI2CBus =  new QueuedI2CBus(i2cBus);
@@ -118,7 +126,7 @@ const ntInstance: NetworkTableInstance = NetworkTableInstance.getDefault();
 ntInstance.setNetworkIdentity("romi-nt-client");
 
 // Set default log level
-ntInstance.logSeverity = LogSeverity.INFO;
+ntInstance.setLogLevel(LogLevel.info);
 
 const romiTable = ntInstance.getTable("/Romi");
 const romiInfoTable = romiTable.getSubTable("Information");
@@ -163,7 +171,7 @@ if (serviceConfig.endpointType === EndpointType.SERVER) {
     };
 
     endpoint = WPILibWSRobotEndpoint.createServerEndpoint(robot, serverSettings);
-    console.log(`[CONFIG] Mode: Server, Port: ${serviceConfig.port}, URI: ${serviceConfig.uri}`);
+    configLogger.info(`Mode: Server, Port: ${serviceConfig.port}, URI: ${serviceConfig.uri}`);
 }
 else {
     const clientSettings: WPILibWSClientConfig = {
@@ -173,7 +181,7 @@ else {
     };
 
     endpoint = WPILibWSRobotEndpoint.createClientEndpoint(robot, clientSettings);
-    console.log(`[CONFIG] Mode: Client, Host: ${serviceConfig.host}, Port: ${serviceConfig.port}, URI: ${serviceConfig.uri}`);
+    configLogger.info(`Mode: Client, Host: ${serviceConfig.host}, Port: ${serviceConfig.port}, URI: ${serviceConfig.uri}`);
 }
 
 // Set up the gyro calibration util
@@ -246,7 +254,7 @@ robot.on("wsConnection", (remoteConnectionInfo) => {
     // Update the NT client to point to the new IP
     ntInstance.setServer(remoteConnectionInfo.remoteAddrV4);
     if (!ntConnected) {
-        console.log("[NT] Starting Client");
+        mainLogger.info("Starting NT Client");
         ntInstance.startClient(remoteConnectionInfo.remoteAddrV4);
         ntConnected = true;
     }
@@ -264,12 +272,12 @@ robot.on("wsNoConnections", () => {
 
 endpoint.startP()
 .then(() => {
-    console.log(`[SERVICE] Endpoint (${serviceConfig.endpointType}) Started`);
+    mainLogger.info(`Endpoint (${serviceConfig.endpointType}) Started`);
 })
 .then(() => {
-    console.log("[REST-INTERFACE] Endpoints:");
+    restLogger.info("Endpoints:");
     restInterface.getEndpoints().forEach(accessor => {
-        console.log(`[REST-INTERFACE] ${accessor}`);
+        restLogger.info(`${accessor}`);
     });
 
     restInterface.start();

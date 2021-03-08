@@ -8,6 +8,7 @@ import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
 import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
 import { NetworkTableInstance, NetworkTable, EntryListenerFlags } from "node-ntcore";
+import LogUtil from "../utils/logging/log-util";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -28,6 +29,8 @@ const IO_CAPABILITIES: PinCapability[] = [
 ];
 
 export const NUM_CONFIGURABLE_PINS: number = 5;
+
+const logger = LogUtil.getLogger("ROMI");
 
 export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _queuedBus: QueuedI2CBus;
@@ -105,7 +108,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._ioConfiguration = romiConfig.externalIOConfig;
                 }
                 else {
-                    console.log("[ROMI] Error verifying pin configuration. Reverting to default");
+                    logger.warn("Error verifying pin configuration. Reverting to default");
                 }
             }
 
@@ -127,7 +130,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             .then(() => {
                 // Verify firmware
                 if (this._firmwareIdent !== FIRMWARE_IDENT) {
-                    console.log(`[ROMI] Firmware Identifier Mismatch. Expected ${FIRMWARE_IDENT} but got ${this._firmwareIdent}`);
+                    logger.error(`Firmware Identifier Mismatch. Expected ${FIRMWARE_IDENT} but got ${this._firmwareIdent}`);
                 }
             })
             .then(() => {
@@ -139,10 +142,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     return this._lsm6.enableDefault();
                 })
                 .then(() => {
-                    console.log("[ROMI] LSM6DS33 Initialized");
+                    logger.info("LSM6DS33 Initialized");
                 })
                 .catch(err => {
-                    console.log("[ROMI] Failed to initialize IMU: " + err.message);
+                    logger.error("Failed to initialize IMU: " + err.message);
                 });
             })
             .then(() => {
@@ -183,7 +186,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._i2cHandle.readByte(RomiDataBuffer.status.offset)
                     .then(val => {
                         if (val === 0) {
-                            console.log("[ROMI] Status byte is 0. Assuming brown out. Rewriting IO config");
+                            logger.warn("Status byte is 0. Assuming brown out. Rewriting IO config");
                             // If the status byte is 0, we might have browned out the romi
                             // So we write the IO configuration again
                             this._writeOnboardIOConfiguration()
@@ -197,7 +200,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                                 setTimeout(() => {
                                     this.queryFirmwareIdent()
                                     .then((fwIdent) => {
-                                        console.log("[ROMI] Firmware Identifier: " + fwIdent);
+                                        logger.info("Firmware Identifier: " + fwIdent);
                                     });
                                 }, 2000);
                             });
@@ -210,7 +213,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 }, 500);
             })
             .catch(err => {
-                console.log("[ROMI] Failed to initialize robot: ", err);
+                logger.error("Failed to initialize robot: ", err);
             });
     }
 
@@ -457,7 +460,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         this._numWsConnections++;
 
-        console.log(`[ROMI] New WS Connection from ${remoteAddrV4}`);
+        logger.info(`New WS Connection from ${remoteAddrV4}`);
         this.emit("wsConnection", {
             remoteAddrV4
         });
@@ -477,22 +480,22 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public onRobotEnabled(): void {
-        console.log("[ROMI] Robot ENABLED");
+        logger.info("Robot ENABLED");
         this._dsEnabled = true;
     }
 
     public onRobotDisabled(): void {
-        console.log("[ROMI] Robot DISABLED");
+        logger.info("Robot DISABLED");
         this._dsEnabled = false;
     }
 
     public onDSPacketTimeoutOccurred(): void {
-        console.log("[ROMI] DS Packet Heartbeat Lost");
+        logger.warn("DS Packet Heartbeat Lost");
         this._dsHeartbeatPresent = false;
     }
 
     public onDSPacketTimeoutCleared(): void {
-        console.log("[ROMI] DS Packet Heartbeat Acquired");
+        logger.info("DS Packet Heartbeat Acquired");
         this._dsHeartbeatPresent = true;
     }
 
@@ -511,7 +514,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _verifyConfiguration(config: PinConfiguration[]): boolean {
         if (config.length !== IO_CAPABILITIES.length) {
-            console.log(`[ROMI] Incorrect number of pin config options. Expected ${IO_CAPABILITIES.length} but got ${config.length}`);
+            logger.warn(`Incorrect number of pin config options. Expected ${IO_CAPABILITIES.length} but got ${config.length}`);
             return false;
         }
 
@@ -519,7 +522,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             // For each element, make sure that we are setting a mode that is supported
             const configOption = config[i];
             if (IO_CAPABILITIES[i].supportedModes.indexOf(configOption.mode) === -1) {
-                console.log(`[ROMI] Invalid mode set for pin ${i}. Supported modes are ${JSON.stringify(IO_CAPABILITIES[i].supportedModes)}`);
+                logger.warn(`Invalid mode set for pin ${i}. Supported modes are ${JSON.stringify(IO_CAPABILITIES[i].supportedModes)}`);
                 return false;
             }
         }

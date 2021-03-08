@@ -1,11 +1,15 @@
 import I2CPromisifiedBus from "./i2c-connection";
 import i2c from "i2c-bus";
+import LogUtil from "../../utils/logging/log-util";
+import winston from "winston";
 
 export default class HardwareI2C extends I2CPromisifiedBus {
     private _i2cBusP: Promise<i2c.PromisifiedBus>;
+    private _logger: winston.Logger;
 
     protected setup(): void {
-        console.log(`HardwareI2C(bus=${this._busNumber})`);
+        this._logger = LogUtil.getLogger(`I2C-HW-${this._busNumber}`);
+        this._logger.info(`HardwareI2C(bus=${this._busNumber})`);
         this._i2cBusP = i2c.openPromisified(this._busNumber);
     }
 
@@ -17,6 +21,7 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     }
 
     public readByte(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
+        this._logger.silly(`readByte(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, ${romiMode ? "true": "false"})`);
         return this._i2cBusP
         .then(bus => {
             if (romiMode) {
@@ -36,6 +41,7 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     }
 
     public writeByte(addr: number, cmd: number, byte: number): Promise<void> {
+        this._logger.silly(`writeBute(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, byte=0x${byte.toString(16)})`);
         return this._i2cBusP
         .then(bus => {
             return bus.writeByte(addr, cmd, byte);
@@ -45,6 +51,7 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     public readWord(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
         const buf = Buffer.alloc(2);
 
+        this._logger.silly(`readWord(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, ${romiMode ? "true": "false"})`);
         return this._i2cBusP
         .then(bus => {
             if (romiMode) {
@@ -63,6 +70,7 @@ export default class HardwareI2C extends I2CPromisifiedBus {
     }
 
     public writeWord(addr: number, cmd: number, word: number): Promise<void> {
+        this._logger.silly(`writeBute(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, word=0x${word.toString(16)})`);
         return this._i2cBusP
         .then(bus => {
             return bus.writeWord(addr, cmd, word);
