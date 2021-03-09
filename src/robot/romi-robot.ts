@@ -154,15 +154,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 // Set up the heartbeat. Only send the heartbeat if we have
                 // an active WS connection, the robot is in enabled state
                 // AND we have a recent-ish DS packet
-                this._heartbeatTimer = setInterval(() => {
-                    if (this._numWsConnections > 0 && this._dsEnabled && this._dsHeartbeatPresent) {
-                        this._i2cHandle.writeByte(RomiDataBuffer.heartbeat.offset, 1)
-                        .catch(err => {
-                            this._i2cErrorDetector.addErrorInstance();
-                        });
-                    }
-                }, 100);
-
+                this._heartbeatTimer = setInterval(() => {this._setRomiHeartBeat();}, 100 );
                 // Set up the read timer
                 this._readTimer = setInterval(() => {
                     this._bulkAnalogRead();
@@ -482,6 +474,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     public onRobotEnabled(): void {
         logger.info("Robot ENABLED");
         this._dsEnabled = true;
+        // To ensure Romi will act on signals sent immediately
+        this._setRomiHeartBeat();
     }
 
     public onRobotDisabled(): void {
@@ -595,6 +589,15 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         .catch(err => {
             this._i2cErrorDetector.addErrorInstance();
         });
+    }
+
+    private _setRomiHeartBeat(): void {
+        if (this._numWsConnections > 0 && this._dsEnabled && this._dsHeartbeatPresent) {
+            this._i2cHandle.writeByte(RomiDataBuffer.heartbeat.offset, 1)
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            });
+        }
     }
 
     private _bulkAnalogRead() {
