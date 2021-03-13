@@ -1,4 +1,7 @@
+import LogUtil from "../../utils/logging/log-util";
 import LSM6, { Vector3 } from "../../robot/devices/core/lsm6/lsm6";
+
+const logger = LogUtil.getLogger("SVC-GYROCAL");
 
 export enum CalibrationState {
     IDLE = "IDLE",
@@ -46,7 +49,7 @@ export default class GyroCalibrationUtil {
             this._calibrationInterval = undefined;
         }
 
-        console.log("[IMU] Beginning Gyro Calibration...");
+        logger.info("Beginning Gyro Calibration...");
         this._state = CalibrationState.CALIBRATING;
 
         // Reset the gyro offsets
@@ -102,9 +105,9 @@ export default class GyroCalibrationUtil {
                     // Update the gyro with the new zero offset values
                     this._gyro.gyroOffset = this._lastZeroOffsetValue;
 
-                    console.log("[IMU] Gyro Calibration Complete");
-                    console.log(`[IMU] Zero Offset: ${JSON.stringify(this._lastZeroOffsetValue)}`);
-                    console.log(`[IMU] Noise: ${JSON.stringify(this._lastNoiseValue)}`);
+                    logger.info("Gyro Calibration Complete");
+                    logger.info(`Zero Offset: ${JSON.stringify(this._lastZeroOffsetValue)}`);
+                    logger.info(`Noise: ${JSON.stringify(this._lastNoiseValue)}`);
                 }
             }, this._sampleIntervalMs);
         });

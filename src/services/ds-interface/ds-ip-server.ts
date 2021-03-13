@@ -1,7 +1,10 @@
 import { Server, Socket } from "net";
 import { Address4 } from "ip-address";
+import LogUtil from "../../utils/logging/log-util";
 
 const DS_IP_INTERFACE_PORT: number = 1742;
+
+const logger = LogUtil.getLogger("SVC-DS");
 
 export default class DSServer {
     private _ipAddrString: string = "";
@@ -19,7 +22,7 @@ export default class DSServer {
             }
             else {
                 if (!Address4.isValid(newIp)) {
-                    console.log("[DS-INTERFACE] Invalid IP address provided");
+                    logger.warn("Invalid IP address provided");
                     return;
                 }
 
@@ -33,7 +36,7 @@ export default class DSServer {
                 this._ipAddrNum = addrBuf.readUInt32BE();
             }
 
-            console.log(`[DS-INTERFACE] Advertised NT Server address updated to: ${this._ipAddrString}`);
+            logger.info(`Advertised NT Server address updated to: ${this._ipAddrString}`);
 
             this._informAllClients();
         }
@@ -44,12 +47,12 @@ export default class DSServer {
             this._activeSockets.push(socket);
             this._informClient(socket);
 
-            console.log(`[DS-INTERFACE] New DS Server connection. Total number of connections: ${this._activeSockets.length}`);
+            logger.info(`New DS Server connection. Total number of connections: ${this._activeSockets.length}`);
 
             socket.once("close", (hadError) => {
                 for (let i = 0; i < this._activeSockets.length; i++) {
                     if (this._activeSockets[i] === socket) {
-                        console.log("[DS-INTERFACE] Socket removed");
+                        logger.info("Socket removed");
                         this._activeSockets.splice(i, 1);
                         break;
                     }
@@ -57,24 +60,25 @@ export default class DSServer {
             });
 
             socket.on("error", (err) => {
-                console.log("[DS-INTERFACE] Socket Error: ", err);
+                logger.error("Socket Error: " + err.message);
+                logger.error(err.stack);
             });
         });
 
         this._server.listen(DS_IP_INTERFACE_PORT);
-        console.log(`[DS-INTERFACE] Server Ready on port ${DS_IP_INTERFACE_PORT}`);
+        logger.info(`Server Ready on port ${DS_IP_INTERFACE_PORT}`);
     }
 
     public stop() {
         if (this._server && this._server.listening) {
-            console.log("[DS-INTERFACE] Server Closing");
+            logger.info("Server Closing");
             this._server.close();
             this._server = undefined;
         }
     }
 
     private _informAllClients() {
-        console.log(`[DS-INTERFACE] Informing ${this._activeSockets.length} client(s) of updated NT Server IP`);
+        logger.debug(`Informing ${this._activeSockets.length} client(s) of updated NT Server IP`);
         this._activeSockets.forEach(socket => {
             this._informClient(socket);
         });

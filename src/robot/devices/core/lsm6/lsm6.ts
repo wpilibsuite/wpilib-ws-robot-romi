@@ -1,3 +1,4 @@
+import LogUtil from "../../../../utils/logging/log-util";
 import I2CPromisifiedBus from "../../../../device-interfaces/i2c/i2c-connection";
 
 // LSM6DS33 Datasheet: https://www.pololu.com/file/0J1087/LSM6DS33.pdf
@@ -132,6 +133,8 @@ export interface LSM6Config {
     gyroOffset?: Vector3;
 }
 
+const logger = LogUtil.getLogger("IMU-ONBOARD");
+
 export default class LSM6 {
     private _accel: Vector3 = { x: 0, y: 0, z: 0 };
     private _gyro: Vector3 = { x: 0, y: 0, z: 0 };
@@ -164,12 +167,12 @@ export default class LSM6 {
         return this._readByte(RegAddr.WHO_AM_I)
         .then(whoami => {
             if (whoami !== DS33_WHO_ID) {
-                console.log("[IMU] Invalid WHO_AM_I response");
+                logger.error("Invalid WHO_AM_I response");
                 throw new Error("Invalid WHO_AM_I");
             }
             else {
-                console.log("[IMU] Identified as LSM6DS33");
-                console.log("[IMU] Gyro Zero Offset at Init: " + JSON.stringify(this._gyroOffset));
+                logger.info("Identified as LSM6DS33");
+                logger.info("Gyro Zero Offset at Init: " + JSON.stringify(this._gyroOffset));
                 this._isReady = true;
             }
         });
@@ -223,7 +226,7 @@ export default class LSM6 {
         await this._writeByte(RegAddr.CTRL1_XL, controlByte);
         this._accelerometerScale = scale;
 
-        console.log(`[IMU] Accelerometer Scale: ${scale}`);
+        logger.info(`Accelerometer Scale: ${scale}`);
     }
 
     public async setGyroScale(scale: GyroScale): Promise<void> {
@@ -235,7 +238,7 @@ export default class LSM6 {
         await this._writeByte(RegAddr.CTRL2_G, controlByte);
         this._gyroScale = scale;
 
-        console.log(`[IMU] Gyro Scale: ${scale}`);
+        logger.info(`Gyro Scale: ${scale}`);
     }
 
     /**

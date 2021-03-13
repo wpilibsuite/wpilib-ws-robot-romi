@@ -1,5 +1,7 @@
+import winston from "winston";
 import I2CPromisifiedBus from "./i2c-connection";
 import MockI2CDevice from "./mock-i2c-device";
+import LogUtil from "../../utils/logging/log-util";
 
 export enum MockI2CBusEventType {
     READ_BYTE = "READ_BYTE",
@@ -26,15 +28,26 @@ export default class MockI2C extends I2CPromisifiedBus {
 
     private _eventListeners: MockI2CEventListener[] = [];
 
+    private _logger: winston.Logger;
+    private _logFunc: (message: string) => void;
+
     constructor(busNum: number, shouldLog?: boolean) {
         super(busNum);
         this._shouldLog = !!shouldLog;
+
+        this._logger = LogUtil.getLogger(`I2C-MOCK-${this._busNumber}`);
+        this._logger.info(`MockI2C(bus=${this._busNumber})`);
+
+        if (this._shouldLog) {
+            this._logFunc = this._logger.info.bind(this._logger);
+        }
+        else {
+            this._logFunc = this._logger.silly.bind(this._logger);
+        }
     }
 
     protected setup(): void {
-        if (this._shouldLog) {
-            console.log(`MockI2C(bus=${this._busNumber})`);
-        }
+
     }
 
     public addDeviceToBus(device: MockI2CDevice) {
@@ -68,9 +81,7 @@ export default class MockI2C extends I2CPromisifiedBus {
     }
 
     public readByte(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
-        if (this._shouldLog) {
-            console.log(`readByte(${addr}, ${cmd})`);
-        }
+        this._logFunc(`readByte(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, ${romiMode ? "true": "false"})`);
 
         if (this._devices.has(addr)) {
             this._notifyListeners({
@@ -91,9 +102,7 @@ export default class MockI2C extends I2CPromisifiedBus {
     }
 
     public writeByte(addr: number, cmd: number, byte: number): Promise<void> {
-        if (this._shouldLog) {
-            console.log(`writeByte(${addr}, ${cmd}, ${byte})`);
-        }
+        this._logFunc(`writeByte(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, byte=${byte})`);
 
         if (this._devices.has(addr)) {
             this._notifyListeners({
@@ -115,9 +124,7 @@ export default class MockI2C extends I2CPromisifiedBus {
     }
 
     public readWord(addr: number, cmd: number, romiMode?: boolean): Promise<number> {
-        if (this._shouldLog) {
-            console.log(`readWord(${addr}, ${cmd})`);
-        }
+        this._logFunc(`readWord(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, ${romiMode ? "true": "false"})`);
 
         if (this._devices.has(addr)) {
             this._notifyListeners({
@@ -138,9 +145,7 @@ export default class MockI2C extends I2CPromisifiedBus {
     }
 
     public writeWord(addr: number, cmd: number, word: number): Promise<void> {
-        if (this._shouldLog) {
-            console.log(`writeWord(${addr}, ${cmd}, ${word})`);
-        }
+        this._logFunc(`writeWord(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)}, word=${word})`);
 
         if (this._devices.has(addr)) {
             this._notifyListeners({
