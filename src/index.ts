@@ -185,7 +185,7 @@ else {
 }
 
 // Set up the gyro calibration util
-const gyroCalibrationUtil: GyroCalibrationUtil = new GyroCalibrationUtil(robot.getIMU());
+const gyroCalibrationUtil: GyroCalibrationUtil = new GyroCalibrationUtil(robot);
 
 // Set up the REST interface
 const restInterface: RestInterface = new RestInterface();

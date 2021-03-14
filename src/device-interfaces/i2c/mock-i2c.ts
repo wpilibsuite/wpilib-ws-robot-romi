@@ -7,7 +7,9 @@ export enum MockI2CBusEventType {
     READ_BYTE = "READ_BYTE",
     READ_WORD = "READ_WORD",
     WRITE_BYTE = "WRITE_BYTE",
-    WRITE_WORD = "WROTE_WORD",
+    WRITE_WORD = "WRITE_WORD",
+    SEND_BYTE = "SEND_BYTE",
+    RECEIVE_BYTE = "RECEIVE_BYTE",
     IO_ERROR = "IO_ERROR",
     BUS_CLOSE = "BUS_CLOSE"
 }
@@ -161,6 +163,46 @@ export default class MockI2C extends I2CPromisifiedBus {
             eventType: MockI2CBusEventType.IO_ERROR,
             address: addr,
             cmd,
+            errDescription: "No Device Associated With Address"
+        });
+        return Promise.reject(`[MOCK-I2C] IO Error - No device with address ${addr}`);
+    }
+
+    public sendByte(addr: number, cmd: number): Promise<void> {
+        this._logger.silly(`sendByte(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)})`);
+
+        if (this._devices.has(addr)) {
+            this._notifyListeners({
+                eventType: MockI2CBusEventType.SEND_BYTE,
+                address: addr,
+                cmd
+            });
+            return this._devices.get(addr).sendByte(cmd);
+        }
+        
+        this._notifyListeners({
+            eventType: MockI2CBusEventType.IO_ERROR,
+            address: addr,
+            cmd,
+            errDescription: "No Device Associated With Address"
+        });
+        return Promise.reject(`[MOCK-I2C] IO Error - No device with address ${addr}`);
+    }
+
+    public receiveByte(addr: number): Promise<number> {
+        this._logger.silly(`sendByte(addr=0x${addr.toString(16)})`);
+
+        if (this._devices.has(addr)) {
+            this._notifyListeners({
+                eventType: MockI2CBusEventType.SEND_BYTE,
+                address: addr
+            });
+            return this._devices.get(addr).receiveByte();
+        }
+        
+        this._notifyListeners({
+            eventType: MockI2CBusEventType.IO_ERROR,
+            address: addr,
             errDescription: "No Device Associated With Address"
         });
         return Promise.reject(`[MOCK-I2C] IO Error - No device with address ${addr}`);
