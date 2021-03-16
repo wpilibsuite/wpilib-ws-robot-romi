@@ -64,6 +64,14 @@ void configureBuiltins(uint8_t config) {
   builtinDio1Config = (config >> 1) & 0x1;
   builtinDio2Config = (config >> 2) & 0x1;
 
+  // Turn off LEDs if in INPUT mode
+  if (builtinDio1Config == kModeDigitalIn) {
+    ledGreen(false);
+  }
+  if (builtinDio2Config == kModeDigitalIn) {
+    ledRed(false);
+  }
+
   // Wipe out the register
   rPiLink.buffer.builtinConfig = 0;
 }
@@ -150,6 +158,12 @@ void normalModeInit() {
   while(buzzer.playCheck()) {
     // no-op to let the init sound finish
   }
+  // Default state in wpilib is true. For green
+  // and red, they will be specified to output
+  // during run-time. Turning off by default
+  ledYellow(true);
+  ledGreen(false);
+  ledRed(false);
 }
 
 void testModeConfigureIO(uint16_t config) {

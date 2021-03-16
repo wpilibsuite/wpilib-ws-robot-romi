@@ -246,6 +246,12 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (channel == 1 || channel == 2) {
             this._onboardPinConfiguration[channel] = channelMode;
             this._writeOnboardIOConfiguration();
+            // Turn on Green/Red LED if in OUTPUT mode. This must be after 
+            // config write since firmaware does not honor LED value if not in
+            // OUTPUT mode.
+            if(mode === DigitalChannelMode.OUTPUT) {
+              this.setDIOValue(channel, true);
+            }
         }
 
         if (channel >= 8) {
@@ -466,6 +472,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         // If this was our last disconnection, clear out all the state
         if (this._numWsConnections === 0) {
+            console.log("[ROMI] Lost all connections, resetting state");
             this._resetToCleanState();
             this.emit("wsNoConnections");
         }
@@ -734,6 +741,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         // Set up DIO 0 as an input because it's a button
         this._digitalInputValues.set(0, false);
+
+        // Set yellow LED to be true by default since 
+        // DigitalOutput in wpilib defaults to true
+        this.setDIOValue(3, true);
 
         // Reset our ds enabled state
         this._dsEnabled = false;
