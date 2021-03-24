@@ -13,4 +13,6 @@ export default abstract class MockI2CDevice {
     public abstract readWord(cmd: number): Promise<number>;
     public abstract writeByte(cmd: number, byte: number): Promise<void>;
     public abstract writeWord(cmd: number, word: number): Promise<void>;
+    public abstract sendByte(cmd: number): Promise<void>;
+    public abstract receiveByte(): Promise<number>;
 }

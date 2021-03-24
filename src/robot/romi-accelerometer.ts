@@ -1,5 +1,6 @@
 import { RobotAccelerometer } from "@wpilib/wpilib-ws-robot";
-import LSM6, { AccelerometerScale } from "./devices/core/lsm6/lsm6";
+import LSM6, { FIFOFrame } from "./devices/core/lsm6/lsm6";
+import { AccelerometerScale } from "./devices/core/lsm6/lsm6-settings";
 
 export default class RomiAccelerometer extends RobotAccelerometer {
     private _sensitivity: AccelerometerScale;
@@ -31,10 +32,17 @@ export default class RomiAccelerometer extends RobotAccelerometer {
         this._lsm6.setAccelerometerScale(this._sensitivity);
     }
 
-    public update(): void {
+    public updateFromFrames(buffer: FIFOFrame[], dt: number): void {
+        if (buffer.length === 0) {
+            return;
+        }
+
+        // Update to the latest frame's data
+        const frame = buffer[buffer.length - 1];
+
         // These follow NED conventions
-        this.accelX = -this._lsm6.accelerationG.x;
-        this.accelY = this._lsm6.accelerationG.y;
-        this.accelZ = this._lsm6.accelerationG.z;
+        this.accelX = -frame.accelX;
+        this.accelY = frame.accelY;
+        this.accelZ = frame.accelZ;
     }
 }

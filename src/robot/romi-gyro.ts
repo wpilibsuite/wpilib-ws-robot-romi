@@ -1,8 +1,9 @@
 import { RobotGyro } from "@wpilib/wpilib-ws-robot";
-import LSM6, { Vector3 } from "./devices/core/lsm6/lsm6";
+import LSM6, { FIFOFrame, Vector3 } from "./devices/core/lsm6/lsm6";
 import SimpleMovingAverage from "../utils/filters/simple-moving-average";
 import StreamFilter from "../utils/filters/stream-filter";
 import PassThroughFilter from "../utils/filters/pass-through";
+import { OutputDataRate } from "./devices/core/lsm6/lsm6-settings";
 
 const SMA_WINDOW_SIZE = 5;
 
@@ -50,40 +51,29 @@ export default class RomiGyro extends RobotGyro {
         return this._filterWindow;
     }
 
-    public update(): void {
-        const currUpdateTimeMs = Date.now();
-
-        // If we haven't had an update before, update the "last time"
-        // and bail out (since we have no reference to calculate angles)
-        if (this._lastUpdateTimeMs === -1) {
-            this._lastUpdateTimeMs = currUpdateTimeMs;
+    public updateFromFrames(buffer: FIFOFrame[], dt: number): void {
+        if (buffer.length === 0) {
             return;
         }
 
-        const currGyroValues = this._lsm6.gyroDPS;
+        buffer.forEach(frame => {
+            const gyroRateX = this._rateXFilter.getValue(frame.gyroX);
+            const gyroRateY = this._rateYFilter.getValue(-frame.gyroY);
+            const gyroRateZ = this._rateZFilter.getValue(-frame.gyroZ);
 
-        const gyroRateX = this._rateXFilter.getValue(currGyroValues.x);
-        const gyroRateY = this._rateYFilter.getValue(-currGyroValues.y);
-        const gyroRateZ = this._rateZFilter.getValue(-currGyroValues.z);
+            this.rateX = gyroRateX;
+            this.rateY = gyroRateY;
+            this.rateZ = gyroRateZ;
 
-        // Set the rate values
-        this.rateX = gyroRateX;
-        this.rateY = gyroRateY;
-        this.rateZ = gyroRateZ;
+            this._angle.x = this._angle.x + (dt * gyroRateX);
+            this._angle.y = this._angle.y + (dt * gyroRateY);
+            this._angle.z = this._angle.z + (dt * gyroRateZ);
 
-        // Calculate the angles
-        const timeDiffInSeconds = (currUpdateTimeMs - this._lastUpdateTimeMs) / 1000;
-        this._angle.x = this._angle.x + (timeDiffInSeconds * gyroRateX);
-        this._angle.y = this._angle.y + (timeDiffInSeconds * gyroRateY);
-        this._angle.z = this._angle.z + (timeDiffInSeconds * gyroRateZ);
-
-        // Set the angles
-        this.angleX = this._angle.x;
-        this.angleY = this._angle.y;
-        this.angleZ = this._angle.z;
-
-        // Last step - update the "last time"
-        this._lastUpdateTimeMs = currUpdateTimeMs;
+            // Set the angles
+            this.angleX = this._angle.x;
+            this.angleY = this._angle.y;
+            this.angleZ = this._angle.z;
+        });
     }
 
     public reset(): void {

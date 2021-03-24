@@ -1,5 +1,6 @@
 import LogUtil from "../../utils/logging/log-util";
 import LSM6, { Vector3 } from "../../robot/devices/core/lsm6/lsm6";
+import WPILibWSRomiRobot from "../../robot/romi-robot";
 
 const logger = LogUtil.getLogger("SVC-GYROCAL");
 
@@ -14,31 +15,27 @@ export interface CalibrationConfig {
 }
 
 const DEFAULT_NUM_SAMPLES: number = 1500;
-const DEFAULT_SAMPLE_INTERVAL_MS: number = 20;
 
 export default class GyroCalibrationUtil {
     private _gyro: LSM6;
+    private _robot: WPILibWSRomiRobot;
 
     private _state: CalibrationState = CalibrationState.IDLE;
     private _numSamplesProcessed: number = 0;
 
     private _numSamplesToTake: number = DEFAULT_NUM_SAMPLES;
-    private _sampleIntervalMs: number = DEFAULT_SAMPLE_INTERVAL_MS;
 
     private _calibrationInterval: NodeJS.Timeout | undefined;
 
     private _lastZeroOffsetValue: Vector3 = { x: 0, y: 0, z: 0 };
     private _lastNoiseValue: Vector3 = { x: 0, y: 0, z: 0 };
 
-    constructor(gyro: LSM6, config?: CalibrationConfig) {
-        this._gyro = gyro;
+    constructor(robot: WPILibWSRomiRobot,config?: CalibrationConfig) {
+        this._robot = robot;
+        this._gyro = robot.getIMU();
 
         if (config?.numSamples) {
             this._numSamplesToTake = config.numSamples;
-        }
-
-        if (config?.sampleIntervalMs) {
-            this._sampleIntervalMs = config.sampleIntervalMs;
         }
     }
 
@@ -50,68 +47,73 @@ export default class GyroCalibrationUtil {
         }
 
         logger.info("Beginning Gyro Calibration...");
+        // Pause robot IMU reads
+        this._robot.pauseIMUReads("Calibration Running");
+
         this._state = CalibrationState.CALIBRATING;
 
         // Reset the gyro offsets
         this._gyro.gyroOffset = { x: 0, y: 0, z: 0 };
 
         this._numSamplesProcessed = 0;
-        this._gyro.readGyro()
-        .then(() => {
-            let minX: number = this._gyro.gyroDPS.x;
-            let maxX: number = this._gyro.gyroDPS.x;
-            let minY: number = this._gyro.gyroDPS.y;
-            let maxY: number = this._gyro.gyroDPS.y;
-            let minZ: number = this._gyro.gyroDPS.z;
-            let maxZ: number = this._gyro.gyroDPS.z;
+        let minX: number = Number.MAX_VALUE;
+        let maxX: number = Number.MIN_VALUE;
+        let minY: number = Number.MAX_VALUE;
+        let maxY: number = Number.MIN_VALUE;
+        let minZ: number = Number.MAX_VALUE;
+        let maxZ: number = Number.MIN_VALUE;
 
-            let totalX: number = 0;
-            let totalY: number = 0;
-            let totalZ: number = 0;
+        let totalX: number = 0;
+        let totalY: number = 0;
+        let totalZ: number = 0;
 
-            this._calibrationInterval = setInterval(() => {
-                this._gyro.readGyro()
-                .then(() => {
-                    minX = Math.min(minX, this._gyro.gyroDPS.x);
-                    maxX = Math.max(maxX, this._gyro.gyroDPS.x);
-                    minY = Math.min(minY, this._gyro.gyroDPS.y);
-                    maxY = Math.max(maxY, this._gyro.gyroDPS.y);
-                    minZ = Math.min(minZ, this._gyro.gyroDPS.z);
-                    maxX = Math.max(maxZ, this._gyro.gyroDPS.z);
+        this._calibrationInterval = setInterval(() => {
+            const frames = this._gyro.getNewFIFOData();
+            if (frames.length === 0) {
+                return;
+            }
 
-                    totalX += this._gyro.gyroDPS.x;
-                    totalY += this._gyro.gyroDPS.y;
-                    totalZ += this._gyro.gyroDPS.z;
-                });
+            frames.forEach(frame => {
+                minX = Math.min(minX, frame.gyroX);
+                maxX = Math.max(maxX, frame.gyroX);
+                minY = Math.min(minY, frame.gyroY);
+                maxY = Math.max(maxY, frame.gyroY);
+                minZ = Math.min(minZ, frame.gyroZ);
+                maxZ = Math.max(maxZ, frame.gyroZ);
 
-                this._numSamplesProcessed++;
-                if (this._numSamplesProcessed >= this._numSamplesToTake) {
-                    clearInterval(this._calibrationInterval);
-                    this._state = CalibrationState.IDLE;
+                totalX += frame.gyroX;
+                totalY += frame.gyroY;
+                totalZ += frame.gyroZ;
+            });
 
-                    // Take the average
-                    this._lastZeroOffsetValue = {
-                        x: totalX / this._numSamplesToTake,
-                        y: totalY / this._numSamplesToTake,
-                        z: totalZ / this._numSamplesToTake
-                    };
+            this._numSamplesProcessed += frames.length;
 
-                    this._lastNoiseValue = {
-                        x: maxX - minX,
-                        y: maxY - minY,
-                        z: maxZ - minZ
-                    };
+            if (this._numSamplesProcessed >= this._numSamplesToTake) {
+                clearInterval(this._calibrationInterval);
+                this._state = CalibrationState.IDLE;
 
-                    // Update the gyro with the new zero offset values
-                    this._gyro.gyroOffset = this._lastZeroOffsetValue;
+                this._robot.resumeIMUReads("Calibration Complete");
 
-                    logger.info("Gyro Calibration Complete");
-                    logger.info(`Zero Offset: ${JSON.stringify(this._lastZeroOffsetValue)}`);
-                    logger.info(`Noise: ${JSON.stringify(this._lastNoiseValue)}`);
-                }
-            }, this._sampleIntervalMs);
-        });
+                // Take the average
+                this._lastZeroOffsetValue = {
+                    x: totalX / this._numSamplesProcessed,
+                    y: totalY / this._numSamplesProcessed,
+                    z: totalZ / this._numSamplesProcessed
+                };
 
+                this._lastNoiseValue = {
+                    x: maxX - minX,
+                    y: maxY - minY,
+                    z: maxZ - minZ
+                };
+
+                this._gyro.gyroOffset = this._lastZeroOffsetValue;
+                logger.info("Gyro Calibration Complete");
+                logger.info(`Zero Offset: ${JSON.stringify(this._lastZeroOffsetValue)}`);
+                logger.info(`Noise: ${JSON.stringify(this._lastNoiseValue)}`);
+                logger.info(`xRange(${minX},${maxX}), yRange(${minY},${maxY}), zRange(${minZ},${maxZ})`);
+            }
+        }, 20);
     }
 
     public get currentState(): CalibrationState {
@@ -123,7 +125,12 @@ export default class GyroCalibrationUtil {
             return 100;
         }
 
-        return Math.floor((this._numSamplesProcessed / this._numSamplesToTake) * 100);
+        let result = Math.floor((this._numSamplesProcessed / this._numSamplesToTake) * 100);
+        if (result > 100) {
+            result = 100;
+        }
+
+        return result;
     }
 
     public get estimatedTimeLeft(): number {
@@ -131,7 +138,7 @@ export default class GyroCalibrationUtil {
             return 0;
         }
 
-        return ((this._numSamplesToTake - this._numSamplesProcessed) * this._sampleIntervalMs / 1000);
+        return ((this._numSamplesToTake - this._numSamplesProcessed) * this._gyro.getFIFOPeriod());
     }
 
     public get lastZeroOffsetValue(): Vector3 {

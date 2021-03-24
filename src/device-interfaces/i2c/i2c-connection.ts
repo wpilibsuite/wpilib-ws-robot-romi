@@ -14,4 +14,7 @@ export default abstract class I2CPromisifiedBus {
     public abstract readWord(addr: number, cmd: number, romiMode?: boolean): Promise<number>;
     public abstract writeByte(addr: number, cmd: number, byte: number): Promise<void>;
     public abstract writeWord(addr: number, cmd: number, word: number): Promise<void>;
+
+    public abstract sendByte(addr: number, cmd: number): Promise<void>;
+    public abstract receiveByte(addr: number): Promise<number>;
 }

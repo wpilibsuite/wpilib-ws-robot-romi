@@ -93,6 +93,28 @@ export default class MockRomiI2C extends MockI2CDevice {
         return Promise.reject("IO Error");
     }
 
+    public sendByte(cmd: number): Promise<void> {
+        if (this._isError) {
+            return Promise.reject("IO Error");
+        }
+
+        if (cmd < this._incomingBuffer.length) {
+            // TODO do something?
+            return Promise.resolve();
+        }
+
+        return Promise.reject("IO Error");
+    }
+
+    public receiveByte(): Promise<number> {
+        if (this._isError) {
+            return Promise.reject("IO Error");
+        }
+
+        // TODO Implement
+        return Promise.resolve(0);
+    }
+
     // Mock Romi functions
     public setFirmwareIdent(ident: number) {
         this._actualBuffer[RomiShmemBuffer.firmwareIdent.offset] = ident & 0xFF;

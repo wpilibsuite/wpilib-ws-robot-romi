@@ -7,8 +7,9 @@ import RomiConfiguration, { DEFAULT_IO_CONFIGURATION, IOPinMode, PinCapability, 
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
 import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
-import { NetworkTableInstance, NetworkTable, EntryListenerFlags } from "node-ntcore";
+import { NetworkTableInstance, NetworkTable } from "node-ntcore";
 import LogUtil from "../utils/logging/log-util";
+import { FIFOModeSelection, OutputDataRate } from "./devices/core/lsm6/lsm6-settings";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -42,7 +43,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _heartbeatTimer: NodeJS.Timeout;
     private _readTimer: NodeJS.Timeout;
-    private _gyroReadTimer: NodeJS.Timeout;
+    private _imuReadTimer: NodeJS.Timeout;
 
     private _digitalInputValues: Map<number, boolean> = new Map<number, boolean>();
     private _analogInputValues: Map<number, number> = new Map<number, number>();
@@ -65,8 +66,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     private _lsm6: LSM6;
 
+    private _imuFIFOperiod: number = 0;
     private _romiAccelerometer: RomiAccelerometer;
     private _romiGyro: RomiGyro;
+    private _imuReadsPaused: boolean = false;
 
     // Keep track of the number of active WS connections
     private _numWsConnections: number = 0;
@@ -137,9 +140,21 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 // Initialize LSM6
                 return this._lsm6.init()
                 .then(() => {
-                    // Enable the LSM6 at default values to start
-                    // These can be reconfigured later
-                    return this._lsm6.enableDefault();
+                    // Set up the LSM6
+                    // Don't change these unless you (kinda) know what you're doing!
+                    this._lsm6.settings.accelFIFOEnabled = true;
+                    this._lsm6.settings.gyroFIFOEnabled = true;
+                    this._lsm6.settings.accelODR = OutputDataRate.ODR_104_HZ;
+                    this._lsm6.settings.gyroODR = OutputDataRate.ODR_104_HZ;
+                    this._lsm6.settings.fifoSampleRate = OutputDataRate.ODR_104_HZ;
+                    this._lsm6.settings.fifoModeSelection = FIFOModeSelection.CONTINUOUS;
+
+                    this._imuFIFOperiod = this._lsm6.getFIFOPeriod();
+
+                    return this._lsm6.begin()
+                    .then(() => {
+                        return this._lsm6.fifoStart()
+                    });
                 })
                 .then(() => {
                     logger.info("LSM6DS33 Initialized");
@@ -164,14 +179,19 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                     this._readBattery();
                 }, 50);
 
-                // Set up the IMU read timer
-                this._gyroReadTimer = setInterval(() => {
-                    this._lsm6.readAccelerometer();
-                    this._lsm6.readGyro();
+                this._imuReadTimer = setInterval(() => {
+                    if (this._imuReadsPaused) {
+                        return;
+                    }
 
-                    this._romiAccelerometer.update();
-                    this._romiGyro.update();
-                }, 20);
+                    // Pull as many frames as we can for now, and update the devices
+                    const frames = this._lsm6.getNewFIFOData();
+
+                    if (frames.length > 0) {
+                        this._romiAccelerometer.updateFromFrames(frames, this._imuFIFOperiod);
+                        this._romiGyro.updateFromFrames(frames, this._imuFIFOperiod);
+                    }
+                }, 10);
 
                 // Set up the status check
                 setInterval(() => {
@@ -211,6 +231,16 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     public getIMU(): LSM6 {
         return this._lsm6;
+    }
+
+    public pauseIMUReads(reason?: string): void {
+        logger.info(`Pausing IMU Reads ${reason ? "(" + reason + ")" : ""}`);
+        this._imuReadsPaused = true;
+    }
+
+    public resumeIMUReads(reason?: string): void {
+        logger.info(`Resuming IMU Reads ${reason ? "(" + reason + ")" : ""}`);
+        this._imuReadsPaused = false;
     }
 
     public readyP(): Promise<void> {

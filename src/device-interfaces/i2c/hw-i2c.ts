@@ -77,6 +77,22 @@ export default class HardwareI2C extends I2CPromisifiedBus {
         });
     }
 
+    public sendByte(addr: number, cmd: number): Promise<void> {
+        this._logger.silly(`sendByte(addr=0x${addr.toString(16)}, cmd=0x${cmd.toString(16)})`);
+        return this._i2cBusP
+        .then(bus => {
+            return bus.sendByte(addr, cmd);
+        });
+    }
+
+    public receiveByte(addr: number): Promise<number> {
+        this._logger.silly(`receiveByte(addr=0x${addr.toString(16)})`);
+        return this._i2cBusP
+        .then(bus => {
+            return bus.receiveByte(addr);
+        });
+    }
+
     private _postWriteDelay(delayMs: number = 1): Promise<void> {
         return new Promise((resolve) => {
             setTimeout(() => {

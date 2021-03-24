@@ -81,6 +81,13 @@ class TestDevice extends MockI2CDevice {
         return Promise.resolve();
     }
 
+    public sendByte(cmd: number): Promise<void> {
+        return Promise.resolve();
+    }
+
+    public receiveByte(): Promise<number> {
+        return Promise.resolve(0);
+    }
 }
 
 describe("Queued I2C Bus", () => {
