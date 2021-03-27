@@ -6,6 +6,7 @@ import { Vector3 } from "./devices/core/lsm6/lsm6";
 export interface RomiConfigJson {
     ioConfig: string[];
     gyroZeroOffset: Vector3;
+    gyroFilterWindowSize?: number;
 }
 
 export enum IOPinMode {
@@ -33,6 +34,8 @@ export const DEFAULT_IO_CONFIGURATION: PinConfiguration[] = [
 export default class RomiConfiguration {
     private _extIOConfig: PinConfiguration[] = [];
     private _gyroZeroOffset: Vector3 = { x: 0, y: 0, z: 0};
+
+    private _gyroFilterWindowSize: number = 5;
 
     constructor(programArgs?: ProgramArguments) {
         // Pre-load the external IO configuration
@@ -85,6 +88,10 @@ export default class RomiConfiguration {
                     if (romiConfig.gyroZeroOffset) {
                         this._gyroZeroOffset = romiConfig.gyroZeroOffset;
                     }
+
+                    if (romiConfig.gyroFilterWindowSize) {
+                        this._gyroFilterWindowSize = romiConfig.gyroFilterWindowSize;
+                    }
                 }
                 else {
                     isConfigError = true;
@@ -116,6 +123,14 @@ export default class RomiConfiguration {
 
     public set gyroZeroOffset(val: Vector3) {
         this._gyroZeroOffset = val;
+    }
+
+    public get gyroFilterWindowSize(): number {
+        return this._gyroFilterWindowSize;
+    }
+
+    public set gyroFilterWindowSize(val: number) {
+        this._gyroFilterWindowSize = val;
     }
 
     public get pinConfigurationString(): string {
