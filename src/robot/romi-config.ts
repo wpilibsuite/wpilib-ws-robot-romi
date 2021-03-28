@@ -3,10 +3,16 @@ import jsonfile from "jsonfile";
 import ProgramArguments from "../program-arguments";
 import { Vector3 } from "./devices/core/lsm6/lsm6";
 
+export interface CustomDeviceSpec {
+    type: string;
+    config?: any;
+}
+
 export interface RomiConfigJson {
     ioConfig: string[];
     gyroZeroOffset: Vector3;
     gyroFilterWindowSize?: number;
+    customDevices?: CustomDeviceSpec[];
 }
 
 export enum IOPinMode {
@@ -36,6 +42,7 @@ export default class RomiConfiguration {
     private _gyroZeroOffset: Vector3 = { x: 0, y: 0, z: 0};
 
     private _gyroFilterWindowSize: number = 5;
+    private _customDevices: CustomDeviceSpec[] = [];
 
     constructor(programArgs?: ProgramArguments) {
         // Pre-load the external IO configuration
@@ -92,6 +99,10 @@ export default class RomiConfiguration {
                     if (romiConfig.gyroFilterWindowSize) {
                         this._gyroFilterWindowSize = romiConfig.gyroFilterWindowSize;
                     }
+
+                    if (romiConfig.customDevices) {
+                        this._customDevices = romiConfig.customDevices;
+                    }
                 }
                 else {
                     isConfigError = true;
@@ -138,5 +149,13 @@ export default class RomiConfiguration {
             return `EXT${idx}(${val.mode})`;
         })
         .join(", ");
+    }
+
+    public set customDevices(val: CustomDeviceSpec[]) {
+        this._customDevices = val;
+    }
+
+    public get customDevices(): CustomDeviceSpec[] {
+        return this._customDevices;
     }
 }
