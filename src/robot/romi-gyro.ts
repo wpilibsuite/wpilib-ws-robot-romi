@@ -3,9 +3,11 @@ import LSM6, { FIFOFrame, Vector3 } from "./devices/core/lsm6/lsm6";
 import SimpleMovingAverage from "../utils/filters/simple-moving-average";
 import StreamFilter from "../utils/filters/stream-filter";
 import PassThroughFilter from "../utils/filters/pass-through";
-import { OutputDataRate } from "./devices/core/lsm6/lsm6-settings";
+import LogUtil from "../utils/logging/log-util";
 
 const SMA_WINDOW_SIZE = 5;
+
+const logger = LogUtil.getLogger("ROMI-GYRO");
 
 export default class RomiGyro extends RobotGyro {
     private _lsm6: LSM6;
@@ -33,6 +35,8 @@ export default class RomiGyro extends RobotGyro {
         }
 
         this._filterWindow = Math.floor(val);
+
+        logger.info("Filter Window set to " + this._filterWindow);
 
         if (this._filterWindow === 0) {
             // Set up the pass through filter

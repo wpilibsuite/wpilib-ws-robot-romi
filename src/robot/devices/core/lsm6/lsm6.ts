@@ -234,6 +234,7 @@ export default class LSM6 {
 
     private _accelOffset: Vector3 = { x: 0, y: 0, z: 0 };
     private _gyroOffset: Vector3 = { x: 0, y: 0, z: 0 };
+    private _gyroRuntimeOffset: Vector3 = { x: 0, y: 0, z: 0 };
 
     private _i2cBus: I2CPromisifiedBus;
     private _i2cAddress: number;
@@ -299,6 +300,25 @@ export default class LSM6 {
 
     public set gyroOffset(val: Vector3) {
         this._gyroOffset = val;
+    }
+
+    public get gyroRuntimeOffset(): Vector3 {
+        return this._gyroRuntimeOffset;
+    }
+
+    public setRuntimeOffsetX(val: number) {
+        logger.info("Setting runtime X offset to " + val);
+        this._gyroRuntimeOffset.x = val;
+    }
+
+    public setRuntimeOffsetY(val: number) {
+        logger.info("Setting runtime Y offset to " + val);
+        this._gyroRuntimeOffset.y = val;
+    }
+
+    public setRuntimeOffsetZ(val: number) {
+        logger.info("Setting runtime Z offset to " + val);
+        this._gyroRuntimeOffset.z = val;
     }
 
     public getFIFOPeriod(): number {
@@ -529,13 +549,13 @@ export default class LSM6 {
             if (shouldProcess) {
                 switch (i % 6) {
                     case 0:
-                        tempFrame.gyroX = ((val * gyroScaleFactor) / 1000) - this._gyroOffset.x;
+                        tempFrame.gyroX = ((val * gyroScaleFactor) / 1000) - this._gyroOffset.x + this._gyroRuntimeOffset.x;
                         break;
                     case 1:
-                        tempFrame.gyroY = ((val * gyroScaleFactor) / 1000) - this._gyroOffset.y;
+                        tempFrame.gyroY = ((val * gyroScaleFactor) / 1000) - this._gyroOffset.y + this._gyroRuntimeOffset.y;
                         break;
                     case 2:
-                        tempFrame.gyroZ = ((val * gyroScaleFactor) / 1000) - this._gyroOffset.z;
+                        tempFrame.gyroZ = ((val * gyroScaleFactor) / 1000) - this._gyroOffset.z + this._gyroRuntimeOffset.z;
                         break;
                     case 3:
                         tempFrame.accelX = (val * accelScaleFactor) / 1000;

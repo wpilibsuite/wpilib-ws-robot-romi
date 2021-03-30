@@ -7,7 +7,7 @@ import RomiConfiguration, { DEFAULT_IO_CONFIGURATION, IOPinMode, PinCapability, 
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
 import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
-import { NetworkTableInstance, NetworkTable } from "node-ntcore";
+import { NetworkTableInstance, NetworkTable, EntryListenerFlags } from "node-ntcore";
 import LogUtil from "../utils/logging/log-util";
 import { FIFOModeSelection, OutputDataRate } from "./devices/core/lsm6/lsm6-settings";
 
@@ -117,6 +117,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
             if (romiConfig.gyroZeroOffset) {
                 this._lsm6.gyroOffset = romiConfig.gyroZeroOffset;
+            }
+
+            if (romiConfig.gyroFilterWindowSize !== undefined) {
+                this._romiGyro.filterWindow = romiConfig.gyroFilterWindowSize;
             }
         }
 
@@ -276,7 +280,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         if (channel == 1 || channel == 2) {
             this._onboardPinConfiguration[channel] = channelMode;
             this._writeOnboardIOConfiguration();
-            // Turn on Green/Red LED if in OUTPUT mode. This must be after 
+            // Turn on Green/Red LED if in OUTPUT mode. This must be after
             // config write since firmaware does not honor LED value if not in
             // OUTPUT mode.
             if(mode === DigitalChannelMode.OUTPUT) {
@@ -772,7 +776,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         // Set up DIO 0 as an input because it's a button
         this._digitalInputValues.set(0, false);
 
-        // Set yellow LED to be true by default since 
+        // Set yellow LED to be true by default since
         // DigitalOutput in wpilib defaults to true
         this.setDIOValue(3, true);
 
@@ -781,6 +785,47 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     private _configureNTInterface() {
-        // TODO This sets up any NT "API"s that we need
+        const GYRO_ADD_OFFSET_X_KEY = "Gyro Runtime Offset X";
+        const GYRO_ADD_OFFSET_Y_KEY = "Gyro Runtime Offset Y";
+        const GYRO_ADD_OFFSET_Z_KEY = "Gyro Runtime Offset Z";
+        // Set up the gyro filter window
+        this._configNetworkTable.getEntry("Gyro Filter Window").setDouble(this._romiGyro.filterWindow);
+        this._configNetworkTable.addEntryListener("Gyro Filter Window", (table, key, entry, value, flags) => {
+            const newValue = value.getDouble();
+            if (newValue !== this._romiGyro.filterWindow) {
+                this._romiGyro.filterWindow = newValue;
+
+                // Update the value on the wire
+                this._configNetworkTable.getEntry("Gyro Filter Window").setDouble(this._romiGyro.filterWindow);
+            }
+        }, EntryListenerFlags.NEW | EntryListenerFlags.UPDATE);
+
+        // Set up additional offsets on the gyro
+        const addlOffsetXEntry = this._configNetworkTable.getEntry(GYRO_ADD_OFFSET_X_KEY);
+        addlOffsetXEntry.setDouble(0.0);
+        this._configNetworkTable.addEntryListener(GYRO_ADD_OFFSET_X_KEY, (table, key, entry, value, flags) => {
+            const newValue = value.getDouble();
+            if (newValue !== this._lsm6.gyroRuntimeOffset.x) {
+                this._lsm6.setRuntimeOffsetX(newValue);
+            }
+        }, EntryListenerFlags.NEW | EntryListenerFlags.UPDATE);
+
+        const addlOffsetYEntry = this._configNetworkTable.getEntry(GYRO_ADD_OFFSET_Y_KEY);
+        addlOffsetYEntry.setDouble(0.0);
+        this._configNetworkTable.addEntryListener(GYRO_ADD_OFFSET_Y_KEY, (table, key, entry, value, flags) => {
+            const newValue = value.getDouble();
+            if (newValue !== this._lsm6.gyroRuntimeOffset.y) {
+                this._lsm6.setRuntimeOffsetY(newValue);
+            }
+        }, EntryListenerFlags.NEW | EntryListenerFlags.UPDATE);
+
+        const addlOffsetZEntry = this._configNetworkTable.getEntry(GYRO_ADD_OFFSET_Z_KEY);
+        addlOffsetZEntry.setDouble(0.0);
+        this._configNetworkTable.addEntryListener(GYRO_ADD_OFFSET_Z_KEY, (table, key, entry, value, flags) => {
+            const newValue = value.getDouble();
+            if (newValue !== this._lsm6.gyroRuntimeOffset.z) {
+                this._lsm6.setRuntimeOffsetZ(newValue);
+            }
+        }, EntryListenerFlags.NEW | EntryListenerFlags.UPDATE);
     }
 }
