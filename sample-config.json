@@ -1,0 +1,9 @@
+{
+    "ioConfig": ["dio", "pwm", "dio", "ain", "ain"],
+    "customDevices": [
+        {
+            "type": "rev-color-sensor",
+            "config": {}
+        }
+    ]
+}

@@ -3,13 +3,15 @@ import { WPILibWSRobotBase, DigitalChannelMode } from "@wpilib/wpilib-ws-robot";
 import RomiDataBuffer, { FIRMWARE_IDENT } from "./romi-shmem-buffer";
 import I2CErrorDetector from "../device-interfaces/i2c/i2c-error-detector";
 import LSM6 from "./devices/core/lsm6/lsm6";
-import RomiConfiguration, { DEFAULT_IO_CONFIGURATION, IOPinMode, PinCapability, PinConfiguration } from "./romi-config";
+import RomiConfiguration, { CustomDeviceSpec, DEFAULT_IO_CONFIGURATION, IOPinMode, PinCapability, PinConfiguration } from "./romi-config";
 import RomiAccelerometer from "./romi-accelerometer";
 import RomiGyro from "./romi-gyro";
 import QueuedI2CBus, { QueuedI2CHandle } from "../device-interfaces/i2c/queued-i2c-bus";
 import { NetworkTableInstance, NetworkTable, EntryListenerFlags } from "node-ntcore";
 import LogUtil from "../utils/logging/log-util";
 import { FIFOModeSelection, OutputDataRate } from "./devices/core/lsm6/lsm6-settings";
+import CustomDevice, { RobotHardwareInterfaces } from "./devices/custom/custom-device";
+import CustomDeviceFactory from "./devices/custom/device-library";
 
 interface IEncoderInfo {
     reportedValue: number; // This is the reading that is reported to usercode
@@ -18,6 +20,43 @@ interface IEncoderInfo {
     isHardwareReversed?: boolean;
     isSoftwareReversed?: boolean;
     lastReportedTime?: number;
+}
+
+interface DevicePortMapping {
+    device: CustomDevice | "romi-onboard" | "romi-external";
+    port: number;
+}
+
+type OnboardDIOFunction = "general" | "encoder";
+type OnboardPWMFunction = "motor";
+
+// Hardcoded list of onboard DIO ports
+const ROMI_ONBOARD_DIO: OnboardDIOFunction[] = [
+    "general", // 0 - Button A
+    "general", // 1 - Button B / Green LED
+    "general", // 2 - Button C / Red LED
+    "general", // 3 - Yellow LED
+    "encoder", // 4 - Left Encoder A
+    "encoder", // 5 - Left Encoder B
+    "encoder", // 6 - Right Encoder A
+    "encoder", // 7 - Right Encoder B
+];
+
+// Hardcoded list of onboard PWM ports
+const ROMI_ONBOARD_PWM: OnboardPWMFunction[] = [
+    "motor", // 0 - Left Motor
+    "motor", // 1 - Right Motor
+]
+
+export interface DevicePortMappingInfo {
+    deviceName: string;
+    port: number;
+}
+
+export interface RobotIOChannelInfo {
+    dio: DevicePortMappingInfo[],
+    analogIn: DevicePortMappingInfo[],
+    pwm: DevicePortMappingInfo[]
 }
 
 // Supported modes for the Romi pins
@@ -54,9 +93,10 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     private _rightEncoderChannel: number = -1;
 
     private _ioConfiguration: PinConfiguration[] = DEFAULT_IO_CONFIGURATION;
-    private _extDioPins: number[] = []; // Index maps to a DIO channel of (8 + idx). Value is the IO pin index
-    private _extAnalogInPins: number[] = []; // Idx maps to Analog In channel of idx. Value is IO pin index
-    private _extPwmPins: number[] = []; // Idx maps to PWM channel of (2 + idx). Value is the IO pin index
+
+    private _dioDevicePortMapping: DevicePortMapping[] = [];
+    private _analogInDevicePortMapping: DevicePortMapping[] = [];
+    private _pwmDevicePortPortMapping: DevicePortMapping[] = [];
 
     private _extPinConfiguration: number[] = [];
     private _onboardPinConfiguration: number[] = [1, 0, 0, 0];
@@ -79,6 +119,8 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
     // Keep track of the DS heartbeat
     private _dsHeartbeatPresent: boolean = false;
+
+    private _customDevices: CustomDevice[] = [];
 
     private _statusNetworkTable: NetworkTable;
     private _configNetworkTable: NetworkTable;
@@ -122,6 +164,14 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             if (romiConfig.gyroFilterWindowSize !== undefined) {
                 this._romiGyro.filterWindow = romiConfig.gyroFilterWindowSize;
             }
+
+            if (romiConfig.customDevices) {
+                const robotHW: RobotHardwareInterfaces = {
+                    i2cBus: bus
+                };
+
+                this._registerCustomDevices(robotHW, romiConfig.customDevices);
+            }
         }
 
         // Set up NT interfaces
@@ -129,7 +179,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
 
         // Set up the ready indicator
         this._readyP =
-            this._configureIO()
+            this._configureDevices()
             .then(() => {
                 // Read firmware identifier
                 return this.queryFirmwareIdent();
@@ -174,6 +224,16 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 // an active WS connection, the robot is in enabled state
                 // AND we have a recent-ish DS packet
                 this._heartbeatTimer = setInterval(() => {this._setRomiHeartBeat();}, 100 );
+
+                // Set up the custom device update loop (if needed)
+                if (this._customDevices.length > 0) {
+                    setInterval(() => {
+                        this._customDevices.forEach(device => {
+                            device.update();
+                        });
+                    }, 20);
+                }
+
                 // Set up the read timer
                 this._readTimer = setInterval(() => {
                     this._bulkAnalogRead();
@@ -205,9 +265,9 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                             logger.warn("Status byte is 0. Assuming brown out. Rewriting IO config");
                             // If the status byte is 0, we might have browned out the romi
                             // So we write the IO configuration again
-                            this._writeOnboardIOConfiguration()
+                            this._writeRomiOnboardIOConfiguration()
                             .then(() => {
-                                this._writeIOConfiguration();
+                                this._writeRomiExtIOConfiguration();
                             })
                             .then(() => {
                                 // While we're at it... re-query the firmware
@@ -259,6 +319,61 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
         return this._firmwareIdent;
     }
 
+    public get ioChannelInfo(): RobotIOChannelInfo {
+        const result: RobotIOChannelInfo = {
+            dio: [],
+            analogIn: [],
+            pwm: []
+        }
+
+        this._dioDevicePortMapping.forEach(devicePortMapping => {
+            let deviceName: string;
+            if (typeof devicePortMapping.device === "string") {
+                deviceName = devicePortMapping.device;
+            }
+            else {
+                deviceName = devicePortMapping.device.identifier;
+            }
+
+            result.dio.push({
+                deviceName,
+                port: devicePortMapping.port
+            });
+        });
+
+        this._analogInDevicePortMapping.forEach(devicePortMapping => {
+            let deviceName: string;
+            if (typeof devicePortMapping.device === "string") {
+                deviceName = devicePortMapping.device;
+            }
+            else {
+                deviceName = devicePortMapping.device.identifier;
+            }
+
+            result.analogIn.push({
+                deviceName,
+                port: devicePortMapping.port
+            });
+        });
+
+        this._pwmDevicePortPortMapping.forEach(devicePortMapping => {
+            let deviceName: string;
+            if (typeof devicePortMapping.device === "string") {
+                deviceName = devicePortMapping.device;
+            }
+            else {
+                deviceName = devicePortMapping.device.identifier;
+            }
+
+            result.pwm.push({
+                deviceName,
+                port: devicePortMapping.port
+            });
+        });
+
+        return result;
+    }
+
     public getBatteryPercentage(): number {
         return this._batteryPct;
     }
@@ -269,39 +384,41 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             return;
         }
 
-        // Channels 4,5,6,7 are virtually "used" for the encoders
-        if (channel >= 4 && channel <= 7) {
+        const devicePortMapping = this._dioDevicePortMapping[channel];
+        if (!devicePortMapping) {
             return;
         }
 
         const channelMode = (mode === DigitalChannelMode.INPUT) ? 1 : 0;
 
-        // For onboard IO, only channels 1 and 2 are configurable
-        if (channel == 1 || channel == 2) {
-            this._onboardPinConfiguration[channel] = channelMode;
-            this._writeOnboardIOConfiguration();
-            // Turn on Green/Red LED if in OUTPUT mode. This must be after
-            // config write since firmaware does not honor LED value if not in
-            // OUTPUT mode.
-            if(mode === DigitalChannelMode.OUTPUT) {
-              this.setDIOValue(channel, true);
-            }
-        }
-
-        if (channel >= 8) {
-            // DIO channels 8 and above are external
-            const extDioIdx = channel - 8;
-            if (extDioIdx >= this._extDioPins.length) {
-                // Out of bounds
+        if (devicePortMapping.device === "romi-onboard") {
+            // Onboard DIO
+            if (ROMI_ONBOARD_DIO[devicePortMapping.port] === "encoder") {
                 return;
             }
 
-            // Update the _extPinConfiguration array
-            const ioPin: number = this._extDioPins[extDioIdx];
+            // See https://github.com/wpilibsuite/wpilib-ws-robot-romi/tree/main/firmware#digital-io
+            // for more information on what each port is connected to
+            // Essentially, DIO 0 is hardcoded to Button A (input only)
+            // DIO 3 is hardcoded to the yellow LED (Output only)
+            // DIO 1 and 2 are configurable
+            if (devicePortMapping.port === 1 || devicePortMapping.port === 2) {
+                this._onboardPinConfiguration[devicePortMapping.port] = channelMode;
+                this._writeRomiOnboardIOConfiguration();
+
+                if (mode === DigitalChannelMode.OUTPUT) {
+                    this.setDIOValue(devicePortMapping.port, true);
+                }
+            }
+        }
+        else if (devicePortMapping.device === "romi-external") {
+            const ioPin = devicePortMapping.port;
             this._extPinConfiguration[ioPin] = channelMode;
 
-            // Write the configuration
-            this._writeIOConfiguration();
+            this._writeRomiExtIOConfiguration();
+        }
+        else {
+            devicePortMapping.device.setDigitalChannelMode(devicePortMapping.port, mode);
         }
 
         if (mode !== DigitalChannelMode.INPUT) {
@@ -313,23 +430,33 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public setDIOValue(channel: number, value: boolean): void {
-        if (channel < 4) {
-            // Use the built in DIO
-            this._i2cHandle.writeByte(RomiDataBuffer.builtinDioValues.offset + channel, value ? 1 : 0)
-            .catch(err => {
-                this._i2cErrorDetector.addErrorInstance();
-            });
+        if (channel < 0) {
+            return;
         }
 
-        if (channel >= 8) {
-            const extDioIdx = channel - 8;
-            if (this._extDioPins[extDioIdx] !== undefined) {
-                const ioIdx = this._extDioPins[extDioIdx];
-                this._i2cHandle.writeByte(RomiDataBuffer.extIoValues.offset + (ioIdx * 2), value ? 1 : 0)
+        const devicePortMapping = this._dioDevicePortMapping[channel];
+        if (!devicePortMapping) {
+            return;
+        }
+
+        if (devicePortMapping.device === "romi-onboard") {
+            if (ROMI_ONBOARD_DIO[devicePortMapping.port] === "general") {
+                // Use the built in DIO
+                this._i2cHandle.writeByte(RomiDataBuffer.builtinDioValues.offset + devicePortMapping.port, value ? 1 : 0)
                 .catch(err => {
                     this._i2cErrorDetector.addErrorInstance();
                 });
             }
+        }
+        else if (devicePortMapping.device === "romi-external") {
+            const ioIdx = devicePortMapping.port;
+            this._i2cHandle.writeByte(RomiDataBuffer.extIoValues.offset + (ioIdx * 2), value ? 1 : 0)
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            });
+        }
+        else {
+            devicePortMapping.device.setDIOValue(devicePortMapping.port, value);
         }
     }
 
@@ -354,8 +481,16 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     public setPWMValue(channel: number, value: number): void {
-        const totalPwmPorts = 2 + this._extPwmPins.length;
-        if (channel < totalPwmPorts) {
+        if (channel < 0) {
+            return;
+        }
+
+        const devicePortMapping = this._pwmDevicePortPortMapping[channel];
+        if (!devicePortMapping) {
+            return;
+        }
+
+        if (devicePortMapping.device === "romi-onboard") {
             // We get the value in the range 0-255 but the romi
             // expects -400 to 400
             // Positive values here correspond to forward motion
@@ -370,21 +505,34 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
             tmp.writeInt16BE(romiValue);
 
             let offset;
-            if (channel === 0) {
+            if (devicePortMapping.port === 0) {
                 offset = RomiDataBuffer.leftMotor.offset;
             }
-            else if (channel === 1) {
+            else {
                 offset = RomiDataBuffer.rightMotor.offset;
             }
-            else {
-                const pwmIoIdx = channel - 2;
-                const ioIdx = this._extPwmPins[pwmIoIdx];
-                offset = RomiDataBuffer.extIoValues.offset + (ioIdx * 2);
-            }
+
             this._i2cHandle.writeWord(offset, tmp.readUInt16BE())
             .catch(err => {
                 this._i2cErrorDetector.addErrorInstance();
             });
+        }
+        else if (devicePortMapping.device === "romi-external") {
+            // Same conversion logic as above
+            const romiValue = Math.floor(((value / 255) * 800) - 400);
+            const tmp = Buffer.alloc(2);
+            tmp.writeInt16BE(romiValue);
+
+            const ioIdx = devicePortMapping.port;
+            const offset = RomiDataBuffer.extIoValues.offset + (ioIdx * 2);
+
+            this._i2cHandle.writeWord(offset, tmp.readUInt16BE())
+            .catch(err => {
+                this._i2cErrorDetector.addErrorInstance();
+            });
+        }
+        else {
+            devicePortMapping.device.setPWMValue(devicePortMapping.port, value);
         }
     }
 
@@ -566,43 +714,116 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     /**
-     * Configure the IO pins on the romi
+     * Configure all devices on the Romi
+     * This includes setting up the appropriate IO port->device/port pairs
      */
-    private async _configureIO(): Promise<void> {
-        // Loop through the configuration array and write the pin config messages
-        // Wipe out the IO maps
-        this._extAnalogInPins = [];
-        this._extDioPins = [];
-        this._extPwmPins = [];
+    private async _configureDevices(): Promise<void> {
+        // Clear out the maps
+        this._dioDevicePortMapping = [];
+        this._analogInDevicePortMapping = [];
+        this._pwmDevicePortPortMapping = [];
+
+        // Clear out the External IO Pin config
         this._extPinConfiguration = [];
 
+        // Set up all onboard channels
+        ROMI_ONBOARD_DIO.forEach((val, idx) => {
+            this._dioDevicePortMapping.push({
+                device: "romi-onboard",
+                port: idx
+            });
+        });
+
+        ROMI_ONBOARD_PWM.forEach((val, idx) => {
+            this._pwmDevicePortPortMapping.push({
+                device: "romi-onboard",
+                port: idx
+            });
+        });
+
+        // Now configure the external IO
         this._ioConfiguration.forEach((pinConfig, ioIdx) => {
             switch (pinConfig.mode) {
                 case IOPinMode.ANALOG_IN:
                     this._extPinConfiguration.push(2);
-                    this._extAnalogInPins.push(ioIdx);
-                    // We also need to add these to the input set
-                    this._analogInputValues.set(this._extAnalogInPins.length - 1, 0.0);
+
+                    this._analogInDevicePortMapping.push({
+                        device: "romi-external",
+                        port: ioIdx // We use ioIdx here so that we know which offset to write to
+                    });
+
+                    this._analogInputValues.set(this._analogInDevicePortMapping.length - 1, 0.0);
                     break;
                 case IOPinMode.DIO:
                     // Default to OUTPUT for digital pins
                     this._extPinConfiguration.push(0);
-                    this._extDioPins.push(ioIdx);
+
+                    this._dioDevicePortMapping.push({
+                        device: "romi-external",
+                        port: ioIdx
+                    });
                     break;
                 case IOPinMode.PWM:
                     this._extPinConfiguration.push(3);
-                    this._extPwmPins.push(ioIdx);
+                    this._pwmDevicePortPortMapping.push({
+                        device: "romi-external",
+                        port: ioIdx
+                    });
                     break;
             }
         });
 
-        return this._writeIOConfiguration();
+        // Write the onboard and external IO configurations
+        // and then set up the custom devices
+        return this._writeRomiOnboardIOConfiguration()
+        .then(() => {
+            return this._writeRomiExtIOConfiguration();
+        })
+        .then(() => {
+            // Configure any custom devices we might have
+            this._customDevices.forEach(device => {
+                const ioInterfaces = device.ioInterfaces;
+
+                if (ioInterfaces.numDioPorts !== undefined) {
+                    for (let i = 0; i < ioInterfaces.numDioPorts; i++) {
+                        this._dioDevicePortMapping.push({
+                            device,
+                            port: i
+                        });
+                    }
+                }
+
+                if (ioInterfaces.numAnalogInPorts !== undefined) {
+                    for (let i = 0; i < ioInterfaces.numAnalogInPorts; i++) {
+                        this._analogInDevicePortMapping.push({
+                            device,
+                            port: i
+                        });
+                    }
+                }
+
+                if (ioInterfaces.numPwmOutPorts !== undefined) {
+                    for (let i = 0; i < ioInterfaces.numPwmOutPorts; i++) {
+                        this._pwmDevicePortPortMapping.push({
+                            device,
+                            port: i
+                        });
+                    }
+                }
+
+                if (ioInterfaces.simDevices !== undefined) {
+                    ioInterfaces.simDevices.forEach(simDevice => {
+                        this.registerSimDevice(simDevice);
+                    });
+                }
+            });
+        });
     }
 
     /**
      * Write the onboard IO configuration in oneshot
      */
-    private async _writeOnboardIOConfiguration(): Promise<void> {
+    private async _writeRomiOnboardIOConfiguration(): Promise<void> {
         let configRegister: number = (1 << 7);
         this._onboardPinConfiguration.forEach((pinMode, ioIdx) => {
             let pinModeConfig: number = (pinMode & 0x1) << ioIdx;
@@ -618,7 +839,7 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     /**
      * Do the actual configuration write to the romi
      */
-    private async _writeIOConfiguration(): Promise<void> {
+    private async _writeRomiExtIOConfiguration(): Promise<void> {
         let configRegister: number = (1 << 15);
 
         this._extPinConfiguration.forEach((pinMode, ioIdx) => {
@@ -642,51 +863,67 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
     }
 
     private _bulkAnalogRead() {
-        // Loop through the _extAnalogInPins to find the index we want
-        this._extAnalogInPins.forEach((extIoIdx, ainIdx) => {
-            const offset = RomiDataBuffer.extIoValues.offset + (extIoIdx * 2);
-            this._i2cHandle.readWord(offset)
-            .then(adcVal => {
-                // The value sent over the wire is a 10-bit ADC value
-                // We'll need to convert it to 5V
-                const voltage = (adcVal / 1023.0) * 5.0;
-                this._analogInputValues.set(ainIdx, voltage);
-            })
-            .catch(err => {
-                this._i2cErrorDetector.addErrorInstance();
-            });
+        this._analogInDevicePortMapping.forEach((devicePortMapping, ainIdx) => {
+            if (devicePortMapping.device === "romi-onboard") {
+                return;
+            }
+
+            if (devicePortMapping.device === "romi-external") {
+                const offset = RomiDataBuffer.extIoValues.offset + (devicePortMapping.port * 2);
+                this._i2cHandle.readWord(offset)
+                .then(adcVal => {
+                    // The value sent over the wire is a 10-bit ADC value
+                    // We'll need to convert it to 5V
+                    const voltage = (adcVal / 1023.0) * 5.0;
+                    this._analogInputValues.set(ainIdx, voltage);
+                })
+                .catch(err => {
+                    this._i2cErrorDetector.addErrorInstance();
+                });
+            }
+            else {
+                devicePortMapping.device.getAnalogInVoltage(devicePortMapping.port)
+                .then(voltage => {
+                    this._analogInputValues.set(ainIdx, voltage);
+                });
+            }
         });
 
     }
 
     private _bulkDigitalRead() {
         this._digitalInputValues.forEach((val, channel) => {
-            let offset = RomiDataBuffer.builtinDioValues.offset;
-
-            if (channel < 4) {
-                offset += channel;
-            }
-            else if (channel >= 8) {
-                const dioIdx = channel - 8;
-                if (this._extDioPins[dioIdx] !== undefined) {
-                    // Little endian, so reading 1 byte is fine
-                    offset = RomiDataBuffer.extIoValues.offset + (this._extDioPins[dioIdx] * 2);
-                }
-                else {
-                    return;
-                }
-            }
-            else {
+            const devicePortMapping = this._dioDevicePortMapping[channel];
+            if (!devicePortMapping) {
                 return;
             }
 
-            this._i2cHandle.readByte(offset)
-            .then(value => {
-                this._digitalInputValues.set(channel, value !== 0);
-            })
-            .catch(err => {
-                this._i2cErrorDetector.addErrorInstance();
-            });
+            if (devicePortMapping.device === "romi-onboard") {
+                const offset = RomiDataBuffer.builtinDioValues.offset + channel;
+                this._i2cHandle.readByte(offset)
+                .then(value => {
+                    this._digitalInputValues.set(channel, value !== 0);
+                })
+                .catch(err => {
+                    this._i2cErrorDetector.addErrorInstance();
+                });
+            }
+            else if (devicePortMapping.device === "romi-external") {
+                const offset = RomiDataBuffer.extIoValues.offset + (devicePortMapping.port * 2);
+                this._i2cHandle.readByte(offset)
+                .then(value => {
+                    this._digitalInputValues.set(channel, value !== 0);
+                })
+                .catch(err => {
+                    this._i2cErrorDetector.addErrorInstance();
+                });
+            }
+            else {
+                devicePortMapping.device.getDigitalInValue(devicePortMapping.port)
+                .then(value => {
+                    this._digitalInputValues.set(channel, value);
+                });
+            }
         });
     }
 
@@ -827,5 +1064,28 @@ export default class WPILibWSRomiRobot extends WPILibWSRobotBase {
                 this._lsm6.setRuntimeOffsetZ(newValue);
             }
         }, EntryListenerFlags.NEW | EntryListenerFlags.UPDATE);
+    }
+
+    private _registerCustomDevices(robotHardware: RobotHardwareInterfaces, deviceSpecs: CustomDeviceSpec[]) {
+        const singletonDevices: Set<string> = new Set<string>();
+
+        deviceSpecs.forEach(deviceSpec => {
+            try {
+                const device = CustomDeviceFactory.createDevice(deviceSpec.type, robotHardware, deviceSpec.config);
+
+                if (device.isSingleton) {
+                    if (singletonDevices.has(deviceSpec.type)) {
+                        throw new Error("Singleton device already exists");
+                    }
+
+                    singletonDevices.add(deviceSpec.type);
+                }
+
+                this._customDevices.push(device);
+            }
+            catch (err) {
+                logger.error(`Error creating device (${deviceSpec.type}): ${err.message}`);
+            }
+        });
     }
 }

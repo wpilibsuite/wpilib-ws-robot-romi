@@ -214,6 +214,10 @@ restInterface.addStatusQuery("battery-status", () => {
     };
 });
 
+restInterface.addStatusQuery("robot-io-channel-info", () => {
+    return robot.ioChannelInfo;
+});
+
 restInterface.addIMUAction("calibrate", () => {
     gyroCalibrationUtil.calibrate();
 });
