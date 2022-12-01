@@ -34,7 +34,7 @@
     "express": "^4.17.1",
     "ip-address": "^7.1.0",
     "jsonfile": "^6.0.1",
-    "node-ntcore": "^0.1.5",
+    "node-ntcore": "^0.1.7",
     "promise-queue": "^2.2.5",
     "winston": "^3.3.3"
   },
